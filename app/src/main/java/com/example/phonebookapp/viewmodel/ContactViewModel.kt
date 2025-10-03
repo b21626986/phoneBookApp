@@ -25,7 +25,17 @@ class ContactViewModel : ViewModel() {
 
     private val sortedContacts: StateFlow<List<Contact>> = _contacts
         .map { contactList ->
-            contactList.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+            contactList.sortedWith(
+                compareBy<Contact> {
+                    // Boş/blank isimleri en sona koy
+                    it.name.isBlank()
+                }.thenBy(String.CASE_INSENSITIVE_ORDER) {
+                    // İsim boşsa telefonu kullanarak sıralama yap, değilse isme göre
+                    if (it.name.isBlank()) it.phone else it.name
+                }.thenBy(String.CASE_INSENSITIVE_ORDER) {
+                    it.surname
+                }
+            )
         }
         .stateIn(
             scope = viewModelScope,
@@ -35,31 +45,30 @@ class ContactViewModel : ViewModel() {
 
     val filteredGroupedContacts: StateFlow<Map<Char, List<Contact>>> =
         combine(sortedContacts, _searchText) { contactList, searchText ->
-            if (searchText.isBlank()) {
-                // Arama metni yoksa normal gruplandırılmış listeyi döndür
-                contactList.groupBy { it.name.first().uppercaseChar() }
+            val baseList = if (searchText.isBlank()) {
+                contactList
             } else {
                 val lowerSearchText = searchText.trim().lowercase()
-
-                // 1. Filtreleme
-                val filteredList = contactList.filter { contact ->
-                    val fullName = "${contact.name} ${contact.surname}".lowercase()
-
-                    // İsim, soyisim, telefon veya isim-soyisim ikilisiyle eşleşme
+                contactList.filter { contact ->
+                    val fullName = (contact.name + " " + contact.surname).trim().lowercase()
                     contact.name.lowercase().contains(lowerSearchText) ||
                             contact.surname.lowercase().contains(lowerSearchText) ||
-                            contact.phone.contains(lowerSearchText) ||
+                            contact.phone.lowercase().contains(lowerSearchText) ||
                             fullName.contains(lowerSearchText)
                 }
+            }
 
-                // 2. Gruplandırma
-                filteredList.groupBy { it.name.first().uppercaseChar() }
+            // Gruplandırma: isim boşsa veya harfle başlamıyorsa '#' grubuna koy
+            baseList.groupBy { contact ->
+                val firstChar = contact.name.trim().firstOrNull()
+                if (firstChar != null && firstChar.isLetter()) firstChar.uppercaseChar() else '#'
             }
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyMap()
         )
+
 
     // Arama metnini güncelleyen fonksiyon
     fun onSearchTextChanged(text: String) {
@@ -113,7 +122,11 @@ class ContactViewModel : ViewModel() {
     fun updateContactWithOldPhone(oldPhone: String, updatedContact: Contact) {
         // Eğer kişi hiç değişmediyse güncelleme yapma
         val existingContact = _contacts.value.find { it.phone == oldPhone }
-        if (existingContact == updatedContact) return
+        if (existingContact != null &&
+            existingContact.name == updatedContact.name &&
+            existingContact.surname == updatedContact.surname &&
+            existingContact.phone == updatedContact.phone &&
+            existingContact.imageUri == updatedContact.imageUri) return
 
         _contacts.update { currentList ->
             val index = currentList.indexOfFirst { it.phone == oldPhone }
@@ -128,6 +141,7 @@ class ContactViewModel : ViewModel() {
         _showSuccessAnimation.value = true
         _animationType.value = "update"
     }
+
 
     // Contact silme
     fun deleteContact(contact: Contact) {

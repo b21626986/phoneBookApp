@@ -1,12 +1,17 @@
 package com.example.phonebookapp.ui.screens
 
+import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -14,7 +19,11 @@ import com.airbnb.lottie.compose.*
 import com.example.phonebookapp.R
 import com.example.phonebookapp.model.Contact
 import com.example.phonebookapp.viewmodel.ContactViewModel
-
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import com.example.phonebookapp.ui.utils.ContactImage
+import com.example.phonebookapp.ui.utils.getDominantColor
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddContactScreen(
@@ -24,9 +33,21 @@ fun AddContactScreen(
     var name by remember { mutableStateOf("") }
     var surname by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
-    
+    var imageUri by remember { mutableStateOf<String?>(null) } // Yeni state
+    //val context = LocalContext.current         //gecici denemelerde kullanmak üzere
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        // Seçilen URI'yi imageUri state'ine kaydet
+        imageUri = uri?.toString()
+    }
+
+    // Baskın renk hesaplama (Gölge için)
+    val shadowColor by getDominantColor(imageUri)
     val showSuccessAnimation by viewModel.showSuccessAnimation.collectAsState()
-    
+
+
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.done))
     val progress by animateLottieCompositionAsState(
         composition,
@@ -63,41 +84,54 @@ fun AddContactScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 32.dp, vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally, // Ortalamak için
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-            // ... OutlinedTextField'lar (Aynı kaldı) ...
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Name") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = surname,
-                onValueChange = { surname = it },
-                label = { Text("Surname") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = phone,
-                onValueChange = { phone = it },
-                label = { Text("Phone") },
-                modifier = Modifier.fillMaxWidth()
-            )
+                // FOTOĞRAF SEÇİM ALANI
+                ContactImage(
+                    imageUri = imageUri,
+                    shadowColor = shadowColor, // Gölge rengini uygula
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clickable {
+                        // Galeriye erişimi başlat
+                        imagePickerLauncher.launch("image/*")
+                        }
+                )
+                Spacer(Modifier.height(16.dp))
 
-            Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Name (optional)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = surname,
+                    onValueChange = { surname = it },
+                    label = { Text("Surname (optional)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = phone,
+                    onValueChange = { phone = it },
+                    label = { Text("Phone (required)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-            Button(
-                onClick = {
-                    val contact = Contact(name, surname, phone)
-                    viewModel.addContact(contact)
-                },
-                modifier = Modifier.fillMaxWidth(),
-                // Form boşsa butonu devre dışı bırak
-                enabled = name.isNotBlank() && surname.isNotBlank() && phone.isNotBlank()
-            ) {
-                Text("Save")
-            }
+                Spacer(Modifier.height(8.dp))
+
+                Button(
+                    onClick = {
+                        // imageUri'yi Contact nesnesine ekle
+                        val contact = Contact(name.trim(), surname.trim(), phone.trim(), imageUri)
+                        viewModel.addContact(contact)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = phone.isNotBlank()
+                ) {
+                    Text("Save")
+                }
             }
 
             // Lottie Animasyonu
@@ -113,3 +147,5 @@ fun AddContactScreen(
         }
     }
 }
+
+// Mükerrer ContactImage kaldırıldı; utils/ContactImage kullanılacak

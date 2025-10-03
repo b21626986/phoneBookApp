@@ -36,6 +36,7 @@ import androidx.navigation.NavHostController
 import com.airbnb.lottie.compose.*
 import com.example.phonebookapp.R
 import com.example.phonebookapp.ui.SwipeRow
+import com.example.phonebookapp.ui.utils.ContactImage
 import com.example.phonebookapp.viewmodel.ContactViewModel
 import kotlinx.coroutines.launch
 
@@ -164,12 +165,28 @@ fun ContactsScreen(
                                                 .fillMaxWidth()
                                                 .clickable { navController.navigate("profile/${contact.phone}?mode=view") }
                                                 .padding(16.dp),
-                                            horizontalArrangement = Arrangement.SpaceBetween
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically // Dikeyde hizalama
                                         ) {
-                                            Text("${contact.name} ${contact.surname}", style = MaterialTheme.typography.titleMedium)
-                                            Text(contact.phone, color = MaterialTheme.colorScheme.primary)
+                                            // YENİ: Fotoğraf
+                                            ContactImage(
+                                                imageUri = contact.imageUri,
+                                                modifier = Modifier.size(40.dp)
+                                            )
+                                            Spacer(Modifier.width(16.dp))
+
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                val displayName = (contact.name + " " + contact.surname).trim()
+                                                Text(
+                                                    if (displayName.isNotEmpty()) displayName else contact.phone,
+                                                    style = MaterialTheme.typography.titleMedium
+                                                )
+                                                if (displayName.isNotEmpty()) {
+                                                    Text(contact.phone, color = MaterialTheme.colorScheme.primary)
+                                                }
+                                            }
                                         }
-                                    },
+                                        },
                                     onSwipeLeft = {
                                         navController.navigate("profile/${contact.phone}")
                                     },
