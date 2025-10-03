@@ -2,19 +2,34 @@ package com.example.phonebookapp.ui.screens
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -24,15 +39,21 @@ import com.example.phonebookapp.ui.SwipeRow
 import com.example.phonebookapp.viewmodel.ContactViewModel
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 fun ContactsScreen(
     viewModel: ContactViewModel,
     navController: NavHostController
 ) {
-    val contacts by viewModel.contacts.collectAsState()
+    val groupedContacts by viewModel.filteredGroupedContacts.collectAsState()
+    val searchText by viewModel.searchText.collectAsState()
+    val searchHistory by viewModel.searchHistory.collectAsState()
     val showSuccessAnimation by viewModel.showSuccessAnimation.collectAsState()
-    val animationType by viewModel.animationType.collectAsState()
+
+    val focusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    var isSearchFocused by remember { mutableStateOf(false) }
 
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.done))
     val progress by animateLottieCompositionAsState(
@@ -51,59 +72,161 @@ fun ContactsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Contacts") },
-                actions = {
-                    IconButton(onClick = { navController.navigate("add") }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add Contact")
+            Column { // TopAppBar ve SearchBar'ı dikeyde tutmak için Column kullandık
+                TopAppBar(
+                    title = { Text("Contacts") },
+                    actions = {
+                        IconButton(onClick = { navController.navigate("add") }) {
+                            Icon(Icons.Default.Add, contentDescription = "Add Contact")
+                        }
                     }
-                }
-            )
+                )
+                // Arama Çubuğu
+                OutlinedTextField(
+                    value = searchText,
+                    onValueChange = { viewModel.onSearchTextChanged(it) },
+                    label = { Text("Search Name, Surname or Phone...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                    trailingIcon = {
+                        if (searchText.isNotEmpty()) {
+                            IconButton(onClick = { viewModel.onSearchTextChanged("") }) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear Search")
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = {
+                            // ENTER'a basıldığında geçmişe kaydet ve klavyeyi kapat
+                            viewModel.addSearchTermToHistory(searchText)
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                        }
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .focusRequester(focusRequester)
+                        .onFocusChanged { isSearchFocused = it.isFocused } // Odak değişimini yakalar
+                )
+            }
         },
         content = { paddingValues ->
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
 
-                // Boş liste kontrolü
-                if (contacts.isEmpty()) {
-                    Text(
-                        text = "Henüz kişi eklenmedi. '+' butonuna basarak yeni kişi ekleyin.",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(contacts, key = { it.phone }) { contact ->
-                            // SwipeRow'u ayrı bir dosyadan çağırıyoruz
-                            SwipeRow(
-                                itemContent = {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(16.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text("${contact.name} ${contact.surname}", style = MaterialTheme.typography.titleMedium)
-                                        Text(contact.phone, color = MaterialTheme.colorScheme.primary)
-                                    }
-                                },
-                                onSwipeLeft = {
-                                    navController.navigate("profile/${contact.phone}")
-                                },
-                                onSwipeRight = {
-                                    viewModel.deleteContact(contact)
-                                }
+                // Kişiler Listesi
+                val totalContactsInGroups = groupedContacts.values.sumOf { it.size }
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                ) {
+                    if (totalContactsInGroups == 0) {
+                        item {
+                            val message = if (searchText.isNotEmpty()) {
+                                "'$searchText' ile eşleşen kişi bulunamadı."
+                            } else {
+                                "Henüz kişi eklenmedi. '+' butonuna basarak yeni kişi ekleyin."
+                            }
+
+                            Text(
+                                text = message,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(32.dp),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            Divider()
+                        }
+                    } else {
+                        // Grupları alfabetik olarak sırala (A, B, C...)
+                        groupedContacts.keys.sorted().forEach { initial ->
+                            // Grup Başlığı (Initial)
+                            item {
+                                Text(
+                                    text = initial.toString(),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                                )
+                            }
+
+                            // O gruba ait kişiler
+                            items(groupedContacts[initial] ?: emptyList(), key = { it.phone }) { contact ->
+                                SwipeRow(
+                                    itemContent = {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable { navController.navigate("profile/${contact.phone}?mode=view") }
+                                                .padding(16.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text("${contact.name} ${contact.surname}", style = MaterialTheme.typography.titleMedium)
+                                            Text(contact.phone, color = MaterialTheme.colorScheme.primary)
+                                        }
+                                    },
+                                    onSwipeLeft = {
+                                        navController.navigate("profile/${contact.phone}")
+                                    },
+                                    onSwipeRight = {
+                                        viewModel.deleteContact(contact)
+                                    }
+                                )
+                                Divider(modifier = Modifier.padding(horizontal = 16.dp))
+                            }
                         }
                     }
                 }
 
-                // Lottie Animasyonu
+                // Arama Geçmişi Alanı (Listenin üzerine katman olarak eklenmiştir)
+                if (isSearchFocused && searchText.isEmpty() && searchHistory.isNotEmpty()) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 0.dp), // Listenin hemen üstüne hizala
+                        shadowElevation = 4.dp // Gölgelendirme ile listenin üstünde olduğu belli olur
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surface)
+                                .padding(horizontal = 16.dp)
+                        ) {
+                            searchHistory.forEach { term ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            viewModel.onSearchTextChanged(term)
+                                            viewModel.addSearchTermToHistory(term)
+                                            focusManager.clearFocus()
+                                            keyboardController?.hide()
+                                        }
+                                        .padding(vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.History, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = term,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    IconButton(onClick = { viewModel.removeSearchTermFromHistory(term) }) {
+                                        Icon(Icons.Default.Close, contentDescription = "Sil", tint = MaterialTheme.colorScheme.error)
+                                    }
+                                }
+                                Divider()
+                            }
+                        }
+                    }
+                }
+
+                // Lottie Animasyonu (Listenin üstünde kalmalı)
                 if (showSuccessAnimation && composition != null) {
                     LottieAnimation(
                         composition,
@@ -117,5 +240,3 @@ fun ContactsScreen(
         }
     )
 }
-
-// ContactsScreen.kt'deki eski SwipeRow kaldırılıp sadece ui/SwipeRow.kt kullanılacak.

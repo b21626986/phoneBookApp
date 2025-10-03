@@ -1,16 +1,94 @@
 package com.example.phonebookapp.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.phonebookapp.model.Contact
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 
 class ContactViewModel : ViewModel() {
     private val _contacts = MutableStateFlow<List<Contact>>(emptyList())
     val contacts: StateFlow<List<Contact>> = _contacts
 
+    // Arama metni StateFlow
+    private val _searchText = MutableStateFlow("")
+    val searchText: StateFlow<String> = _searchText
+
+    // Arama Geçmişi StateFlow (Son 5 aramayı tutar)
+    private val _searchHistory = MutableStateFlow<List<String>>(emptyList())
+    val searchHistory: StateFlow<List<String>> = _searchHistory
+
+    private val sortedContacts: StateFlow<List<Contact>> = _contacts
+        .map { contactList ->
+            contactList.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val filteredGroupedContacts: StateFlow<Map<Char, List<Contact>>> =
+        combine(sortedContacts, _searchText) { contactList, searchText ->
+            if (searchText.isBlank()) {
+                // Arama metni yoksa normal gruplandırılmış listeyi döndür
+                contactList.groupBy { it.name.first().uppercaseChar() }
+            } else {
+                val lowerSearchText = searchText.trim().lowercase()
+
+                // 1. Filtreleme
+                val filteredList = contactList.filter { contact ->
+                    val fullName = "${contact.name} ${contact.surname}".lowercase()
+
+                    // İsim, soyisim, telefon veya isim-soyisim ikilisiyle eşleşme
+                    contact.name.lowercase().contains(lowerSearchText) ||
+                            contact.surname.lowercase().contains(lowerSearchText) ||
+                            contact.phone.contains(lowerSearchText) ||
+                            fullName.contains(lowerSearchText)
+                }
+
+                // 2. Gruplandırma
+                filteredList.groupBy { it.name.first().uppercaseChar() }
+            }
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyMap()
+        )
+
+    // Arama metnini güncelleyen fonksiyon
+    fun onSearchTextChanged(text: String) {
+        _searchText.value = text
+    }
+
+    // Arama geçmişine yeni bir terim ekler.
+    fun addSearchTermToHistory(term: String) {
+        val trimmedTerm = term.trim()
+        if (trimmedTerm.isNotBlank()) {
+            _searchHistory.update { currentHistory ->
+                // Yeni terimi listenin başına ekle ve varsa tekrarını sil.
+                val updatedList = listOf(trimmedTerm) + currentHistory.filter { it != trimmedTerm }
+                // Sadece son 5 terimi tut.
+                updatedList.take(5)
+            }
+        }
+    }
+
+    // Arama geçmişinden bir terimi siler.
+    fun removeSearchTermFromHistory(term: String) {
+        _searchHistory.update { currentHistory ->
+            currentHistory.filter { it != term }
+        }
+    }
+
+
     // Lottie animasyonu için genel success state
+// ... (Geri kalan kodlar aynı kaldı) ...
     private val _showSuccessAnimation = MutableStateFlow(false)
     val showSuccessAnimation: StateFlow<Boolean> = _showSuccessAnimation
 

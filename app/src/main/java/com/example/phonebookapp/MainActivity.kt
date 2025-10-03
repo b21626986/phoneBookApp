@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
             // PhoneBookApp'e gerekli parametreleri geçiyoruz
             PhoneBookApp(viewModel = viewModel, navController = navController)
         }
-        }
+    }
 }
 
 @Composable
@@ -42,10 +42,17 @@ fun PhoneBookApp(viewModel: ContactViewModel, navController: NavHostController) 
         composable("add") {
             AddContactScreen(viewModel = viewModel, navController = navController)
         }
-        composable("profile/{phone}") { backStackEntry ->
+        // Sorgu parametresi (mode) eklendi
+        composable("profile/{phone}?mode={mode}") { backStackEntry ->
             val phone = backStackEntry.arguments?.getString("phone") ?: ""
-            ProfileScreen(phone = phone, viewModel = viewModel, navController = navController)
+            // Mode parametresini al (varsayılan: edit)
+            val mode = backStackEntry.arguments?.getString("mode") ?: "edit"
+            ProfileScreen(
+                phone = phone,
+                viewModel = viewModel,
+                navController = navController,
+                mode = mode // ProfileScreen'e mode'u iletiyoruz
+            )
         }
     }
 }
-

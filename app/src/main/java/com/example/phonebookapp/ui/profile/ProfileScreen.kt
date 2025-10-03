@@ -20,10 +20,14 @@ import com.example.phonebookapp.model.Contact
 fun ProfileScreen(
     phone: String,
     viewModel: ContactViewModel,
-    navController: NavHostController
+    navController: NavHostController,
+    mode: String = "edit" // Yeni parametre eklendi (varsayılan: edit)
 ) {
     val contacts by viewModel.contacts.collectAsState()
     val showSuccessAnimation by viewModel.showSuccessAnimation.collectAsState()
+
+    // Düzenleme (edit) modunda olup olmadığını kontrol eden bir boolean
+    val isEditMode = mode == "edit"
 
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.done))
     val progress by animateLottieCompositionAsState(
@@ -52,8 +56,7 @@ fun ProfileScreen(
         }
     }
 
-    // Kişi bilgilerini mutable state ile tutuyoruz. initialContact'ın değişmeyeceğini varsayarak
-    // her yeniden kompozisyonda sıfırlanmasını engellemek için remember kullanılır.
+    // Kişi bilgilerini mutable state ile tutuyoruz.
     var name by remember { mutableStateOf(initialContact.name) }
     var surname by remember { mutableStateOf(initialContact.surname) }
     var phoneNumber by remember { mutableStateOf(initialContact.phone) }
@@ -61,7 +64,7 @@ fun ProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Profile") },
+                title = { Text(if (isEditMode) "Edit Contact" else "Contact Profile") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
@@ -80,56 +83,63 @@ fun ProfileScreen(
                         .padding(horizontal = 32.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                // ... OutlinedTextField'lar (Aynı kaldı) ...
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Name") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = surname,
-                    onValueChange = { surname = it },
-                    label = { Text("Surname") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = phoneNumber,
-                    onValueChange = { phoneNumber = it },
-                    label = { Text("Phone") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                    // Name
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Name") },
+                        readOnly = !isEditMode, // Edit modunda değilse salt okunur
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    // Surname
+                    OutlinedTextField(
+                        value = surname,
+                        onValueChange = { surname = it },
+                        label = { Text("Surname") },
+                        readOnly = !isEditMode, // Edit modunda değilse salt okunur
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    // Phone
+                    OutlinedTextField(
+                        value = phoneNumber,
+                        onValueChange = { phoneNumber = it },
+                        label = { Text("Phone") },
+                        readOnly = !isEditMode, // Edit modunda değilse salt okunur
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
-                Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(8.dp))
 
-                // Save Button
-                Button(
-                    onClick = {
-                        val updatedContact = Contact(name, surname, phoneNumber)
-                        viewModel.updateContactWithOldPhone(
-                            oldPhone = initialContact.phone,
-                            updatedContact = updatedContact
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = name.isNotBlank() && surname.isNotBlank() && phoneNumber.isNotBlank() &&
-                            !(name == initialContact.name && surname == initialContact.surname && phoneNumber == initialContact.phone)
-                ) {
-                    Text("Save Changes")
-                }
+                    // SAVE BUTTON: Sadece edit modunda gösterilir
+                    if (isEditMode) {
+                        Button(
+                            onClick = {
+                                val updatedContact = Contact(name, surname, phoneNumber)
+                                viewModel.updateContactWithOldPhone(
+                                    oldPhone = initialContact.phone,
+                                    updatedContact = updatedContact
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = name.isNotBlank() && surname.isNotBlank() && phoneNumber.isNotBlank() &&
+                                    !(name == initialContact.name && surname == initialContact.surname && phoneNumber == initialContact.phone)
+                        ) {
+                            Text("Save Changes")
+                        }
 
-                Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(8.dp))
 
-                // Delete Button
-                Button(
-                    onClick = {
-                        viewModel.deleteContact(initialContact)
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Delete", color = MaterialTheme.colorScheme.onError)
-                }
+                        // DELETE BUTTON: Sadece edit modunda gösterilir
+                        Button(
+                            onClick = {
+                                viewModel.deleteContact(initialContact)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Delete", color = MaterialTheme.colorScheme.onError)
+                        }
+                    }
                 }
 
                 // Lottie Animasyonu
