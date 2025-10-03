@@ -3,6 +3,8 @@ package com.example.phonebookapp.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.phonebookapp.model.Contact
+import android.content.ContentResolver
+import com.example.phonebookapp.ui.utils.ContactUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -10,6 +12,11 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import com.example.phonebookapp.data.api.ApiClient
+import com.example.phonebookapp.data.api.PhonebookService
+import com.example.phonebookapp.ui.utils.ContactUtils.isContactInDevice
+import kotlinx.coroutines.launch
+import android.content.Context
 
 class ContactViewModel : ViewModel() {
     private val _contacts = MutableStateFlow<List<Contact>>(emptyList())
@@ -18,6 +25,29 @@ class ContactViewModel : ViewModel() {
     // Arama metni StateFlow
     private val _searchText = MutableStateFlow("")
     val searchText: StateFlow<String> = _searchText
+    private val apiService: PhonebookService = ApiClient.retrofit.create(PhonebookService::class.java)
+
+    init {
+        fetchContactsFromApi() // Uygulama başladığında API'den kişileri çek
+    }
+
+    fun fetchContactsFromApi() {
+        viewModelScope.launch {
+            try {
+                val response = apiService.getAllContacts()
+                if (response.isSuccessful && response.body() != null) {
+                    _contacts.value = response.body()!!
+                    // Başarılı olursa, filtrelemeyi ve gruplamayı otomatik tetikler
+                } else {
+                    // Hata durumu (401, 404, vb.)
+                    println("API Hatası: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                // Ağ hatası, JSON hatası vb.
+                e.printStackTrace()
+            }
+        }
+    }
 
     // Arama Geçmişi StateFlow (Son 5 aramayı tutar)
     private val _searchHistory = MutableStateFlow<List<String>>(emptyList())
@@ -111,11 +141,47 @@ class ContactViewModel : ViewModel() {
         _animationType.value = ""
     }
 
-    // Yeni contact ekleme
+
+    // Yeni: Kişinin cihazda kayıtlı olup olmadığını kontrol eden Composable dışı fonksiyon
+    fun checkDeviceContactStatus(context: Context, phoneNumber: String): Boolean {
+        return ContactUtils.isContactInDevice(context.contentResolver, phoneNumber)
+    }
+
+    // TEK VE BİRLEŞTİRİLMİŞ addContact FONKSİYONU
     fun addContact(contact: Contact) {
-        _contacts.value = _contacts.value + contact
-        _showSuccessAnimation.value = true
-        _animationType.value = "add"
+        viewModelScope.launch {
+            try {
+                // 1. API'ye kaydetme isteği gönderilir.
+                val response = apiService.addContact(contact)
+
+                if (response.isSuccessful) {
+                    // 2. Başarılı olursa, listedeki tutarsızlıkları önlemek için tüm kişileri API'den yeniden çeker.
+                    // Not: Daha iyi performans için sadece yeni eklenen kişiyi listeye ekleyebilirsiniz,
+                    // ancak API ile tutarlılığı garanti etmek için tekrar çekmek daha güvenlidir.
+
+                    // 2a. Başarılı olursa, UI'nin anında güncellenmesi için listeye optimistik olarak ekle.
+                    _contacts.update { currentList ->
+                        val alreadyExists = currentList.any { it.phone == contact.phone }
+                        if (alreadyExists) currentList else currentList + contact
+                    }
+
+                    // 2b. Ardından sunucu ile tam tutarlılık için arka planda yeniden çek.
+                    fetchContactsFromApi()
+
+                    // 3. UI Başarı animasyonunu tetikler.
+                    _showSuccessAnimation.value = true
+                    _animationType.value = "add" // Varsayılan animasyon tipi
+                } else {
+                    // 4. API hata kodu gelirse (Örnek: 400 Bad Request)
+                    println("API Ekleme Başarısız: ${response.code()}. Cevap: ${response.errorBody()?.string()}")
+                    // Kullanıcıya hata mesajı gösterme mantığı buraya eklenebilir.
+                }
+            } catch (e: Exception) {
+                // 5. Ağ hatası veya Coroutine hatası
+                e.printStackTrace()
+                // Kullanıcıya ağ hatası mesajı gösterme mantığı buraya eklenebilir.
+            }
+        }
     }
 
     // Contact güncelleme
@@ -149,4 +215,6 @@ class ContactViewModel : ViewModel() {
         _showSuccessAnimation.value = true
         _animationType.value = "delete"
     }
+
+    // (Kaldırıldı) ContentResolver alan overload gereksizdi; Context üzerinden çağrıyoruz.
 }

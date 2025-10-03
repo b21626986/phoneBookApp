@@ -15,13 +15,17 @@ import androidx.navigation.NavHostController
 import com.airbnb.lottie.compose.*
 import com.example.phonebookapp.R
 import com.example.phonebookapp.ui.utils.getDominantColor
+import com.example.phonebookapp.ui.utils.ContactUtils.saveContactToDevice
+import androidx.compose.ui.platform.LocalContext
 import com.example.phonebookapp.viewmodel.ContactViewModel
 import com.example.phonebookapp.model.Contact
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.example.phonebookapp.ui.utils.ContactImage
 import android.net.Uri
-import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import android.Manifest
+import android.content.pm.PackageManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,7 +37,7 @@ fun ProfileScreen(
 ) {
     val contacts by viewModel.contacts.collectAsState()
     val showSuccessAnimation by viewModel.showSuccessAnimation.collectAsState()
-    //val context = LocalContext.current         //gecici denemelerde kullanmak üzere
+    val context = LocalContext.current
 
     val isEditMode = mode == "edit"
 
@@ -79,6 +83,16 @@ fun ProfileScreen(
             imageUri = uri.toString()
         }
     }
+
+    // WRITE_CONTACTS izni için launcher
+    val writeContactsPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted && initialContact != null) {
+            saveContactToDevice(context, initialContact)
+        }
+    }
+
 
     // ... (Scaffold ve TopAppBar kodları aynı kaldı) ...
     Scaffold(
@@ -185,6 +199,31 @@ fun ProfileScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("Delete", color = MaterialTheme.colorScheme.onError)
+                        }
+                    }
+                    else{
+                        // YENİ: Rehbere Kaydet Butonu (View modunda gösterilir)
+                        Button(
+                            onClick = {
+                                // Cihaz Rehberine Kaydetme işlemi
+                                //saveContactToDevice(context, initialContact)
+
+                                // Cihaz Rehberine Kaydetmeden önce izin kontrolü
+                                val hasPermission = ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.WRITE_CONTACTS
+                                ) == PackageManager.PERMISSION_GRANTED
+
+                                if (hasPermission) {
+                                    saveContactToDevice(context, initialContact)
+                                } else {
+                                    writeContactsPermissionLauncher.launch(Manifest.permission.WRITE_CONTACTS)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+                        ) {
+                            Text("Rehbere Kaydet", color = MaterialTheme.colorScheme.onTertiary)
                         }
                     }
                 }

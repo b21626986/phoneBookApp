@@ -121,8 +121,10 @@ fun AddContactScreen(
 
                 Spacer(Modifier.height(8.dp))
 
+                val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
                 Button(
                     onClick = {
+                        keyboardController?.hide()
                         // imageUri'yi Contact nesnesine ekle
                         val contact = Contact(name.trim(), surname.trim(), phone.trim(), imageUri)
                         viewModel.addContact(contact)

@@ -9,6 +9,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -39,6 +41,13 @@ import com.example.phonebookapp.ui.SwipeRow
 import com.example.phonebookapp.ui.utils.ContactImage
 import com.example.phonebookapp.viewmodel.ContactViewModel
 import kotlinx.coroutines.launch
+import androidx.core.content.ContextCompat
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
@@ -50,6 +59,7 @@ fun ContactsScreen(
     val searchText by viewModel.searchText.collectAsState()
     val searchHistory by viewModel.searchHistory.collectAsState()
     val showSuccessAnimation by viewModel.showSuccessAnimation.collectAsState()
+    val context = LocalContext.current // Context alınır
 
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
@@ -68,6 +78,26 @@ fun ContactsScreen(
     LaunchedEffect(progress) {
         if (progress >= 1f && showSuccessAnimation) {
             viewModel.resetSuccessAnimation()
+        }
+    }
+
+    // READ_CONTACTS izni kontrolü ve talebi
+    var hasReadContactsPermission by remember { mutableStateOf(
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.READ_CONTACTS
+        ) == PackageManager.PERMISSION_GRANTED
+    ) }
+
+    val readContactsPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasReadContactsPermission = granted
+    }
+
+    LaunchedEffect(Unit) {
+        if (!hasReadContactsPermission) {
+            readContactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
         }
     }
 
@@ -158,6 +188,23 @@ fun ContactsScreen(
 
                             // O gruba ait kişiler
                             items(groupedContacts[initial] ?: emptyList(), key = { it.phone }) { contact ->
+
+                                /*val isDeviceContact = remember(contact.phone) {
+                                    viewModel.checkDeviceContactStatus(context, contact.phone)
+                                }*/
+                                var isDeviceContact by remember(contact.phone) { mutableStateOf(false) }
+
+                                LaunchedEffect(contact.phone) {
+                                    try {
+                                        val result = withContext(Dispatchers.IO) {
+                                            viewModel.checkDeviceContactStatus(context, contact.phone)
+                                        }
+                                        isDeviceContact = result
+                                    } catch (_: Exception) {
+                                        isDeviceContact = false
+                                    }
+                                }
+
                                 SwipeRow(
                                     itemContent = {
                                         Row(
@@ -184,6 +231,15 @@ fun ContactsScreen(
                                                 if (displayName.isNotEmpty()) {
                                                     Text(contact.phone, color = MaterialTheme.colorScheme.primary)
                                                 }
+                                            }
+                                            // YENİ: Cihaz Rehberi İkonu
+                                            if (isDeviceContact) {
+                                                Spacer(Modifier.width(8.dp))
+                                                Icon(
+                                                    imageVector = Icons.Default.PhoneAndroid,
+                                                    contentDescription = "Device Contact",
+                                                    tint = MaterialTheme.colorScheme.tertiary
+                                                )
                                             }
                                         }
                                         },
