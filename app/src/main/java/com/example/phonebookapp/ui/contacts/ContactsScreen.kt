@@ -41,11 +41,6 @@ import com.example.phonebookapp.ui.SwipeRow
 import com.example.phonebookapp.ui.utils.ContactImage
 import com.example.phonebookapp.viewmodel.ContactViewModel
 import kotlinx.coroutines.launch
-import androidx.core.content.ContextCompat
-import android.Manifest
-import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -78,26 +73,6 @@ fun ContactsScreen(
     LaunchedEffect(progress) {
         if (progress >= 1f && showSuccessAnimation) {
             viewModel.resetSuccessAnimation()
-        }
-    }
-
-    // READ_CONTACTS izni kontrolü ve talebi
-    var hasReadContactsPermission by remember { mutableStateOf(
-        ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.READ_CONTACTS
-        ) == PackageManager.PERMISSION_GRANTED
-    ) }
-
-    val readContactsPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        hasReadContactsPermission = granted
-    }
-
-    LaunchedEffect(Unit) {
-        if (!hasReadContactsPermission) {
-            readContactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
         }
     }
 
@@ -189,9 +164,6 @@ fun ContactsScreen(
                             // O gruba ait kişiler
                             items(groupedContacts[initial] ?: emptyList(), key = { it.phone }) { contact ->
 
-                                /*val isDeviceContact = remember(contact.phone) {
-                                    viewModel.checkDeviceContactStatus(context, contact.phone)
-                                }*/
                                 var isDeviceContact by remember(contact.phone) { mutableStateOf(false) }
 
                                 LaunchedEffect(contact.phone) {
@@ -242,11 +214,11 @@ fun ContactsScreen(
                                                 )
                                             }
                                         }
-                                        },
-                                    onSwipeLeft = {
-                                        navController.navigate("profile/${contact.phone}")
                                     },
-                                    onSwipeRight = {
+                                    onEditClick = {
+                                        navController.navigate("profile/${contact.phone}?mode=edit")
+                                    },
+                                    onDeleteClick = {
                                         viewModel.deleteContact(contact)
                                     }
                                 )

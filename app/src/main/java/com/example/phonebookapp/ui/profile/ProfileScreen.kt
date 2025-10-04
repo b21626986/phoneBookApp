@@ -5,6 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,9 +26,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.example.phonebookapp.ui.utils.ContactImage
 import android.net.Uri
-import androidx.core.content.ContextCompat
-import android.Manifest
-import android.content.pm.PackageManager
+import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +41,7 @@ fun ProfileScreen(
     val context = LocalContext.current
 
     val isEditMode = mode == "edit"
+    var showMenu by remember { mutableStateOf(false) }
 
     // ... (Lottie kodları aynı kaldı) ...
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.done))
@@ -84,16 +86,6 @@ fun ProfileScreen(
         }
     }
 
-    // WRITE_CONTACTS izni için launcher
-    val writeContactsPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted && initialContact != null) {
-            saveContactToDevice(context, initialContact)
-        }
-    }
-
-
     // ... (Scaffold ve TopAppBar kodları aynı kaldı) ...
     Scaffold(
         topBar = {
@@ -105,6 +97,52 @@ fun ProfileScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Geri"
                         )
+                    }
+                },
+                actions = {
+                    if (!isEditMode) {
+                        // View mode'da üç nokta menüsü göster
+                        Box {
+                            IconButton(onClick = { showMenu = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "Menu"
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Edit") },
+                                    onClick = {
+                                        showMenu = false
+                                        navController.navigate("profile/${phone}?mode=edit")
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Edit"
+                                        )
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Delete") },
+                                    onClick = {
+                                        showMenu = false
+                                        viewModel.deleteContact(initialContact)
+                                        navController.popBackStack()
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Delete"
+                                        )
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             )
@@ -129,7 +167,7 @@ fun ProfileScreen(
                                 // Edit modundaysa galeriye erişimi başlat
                                 imagePickerLauncher.launch("image/*")
 
-                         } else Modifier)
+                            } else Modifier)
                     )
                     Spacer(Modifier.height(16.dp))
 
@@ -179,11 +217,11 @@ fun ProfileScreen(
                             modifier = Modifier.fillMaxWidth(),
                             // Sadece bir değişiklik olduğunda aktif olsun
                             enabled = phoneNumber.isNotBlank() && (
-                                name != initialContact.name ||
-                                surname != initialContact.surname ||
-                                phoneNumber != initialContact.phone ||
-                                imageUri != initialContact.imageUri
-                            )
+                                    name != initialContact.name ||
+                                            surname != initialContact.surname ||
+                                            phoneNumber != initialContact.phone ||
+                                            imageUri != initialContact.imageUri
+                                    )
                         ) {
                             Text("Save Changes")
                         }
@@ -206,19 +244,7 @@ fun ProfileScreen(
                         Button(
                             onClick = {
                                 // Cihaz Rehberine Kaydetme işlemi
-                                //saveContactToDevice(context, initialContact)
-
-                                // Cihaz Rehberine Kaydetmeden önce izin kontrolü
-                                val hasPermission = ContextCompat.checkSelfPermission(
-                                    context,
-                                    Manifest.permission.WRITE_CONTACTS
-                                ) == PackageManager.PERMISSION_GRANTED
-
-                                if (hasPermission) {
-                                    saveContactToDevice(context, initialContact)
-                                } else {
-                                    writeContactsPermissionLauncher.launch(Manifest.permission.WRITE_CONTACTS)
-                                }
+                                saveContactToDevice(context, initialContact)
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
