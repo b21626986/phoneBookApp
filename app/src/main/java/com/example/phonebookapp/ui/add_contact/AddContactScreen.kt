@@ -5,7 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,7 +22,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import com.example.phonebookapp.ui.utils.ContactImage
+import com.example.phonebookapp.ui.utils.SuccessMessagePopup
 import com.example.phonebookapp.ui.utils.getDominantColor
+import androidx.compose.ui.zIndex
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddContactScreen(
@@ -33,20 +35,18 @@ fun AddContactScreen(
     var name by remember { mutableStateOf("") }
     var surname by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
-    var imageUri by remember { mutableStateOf<String?>(null) } // Yeni state
-    //val context = LocalContext.current         //gecici denemelerde kullanmak üzere
+    var imageUri by remember { mutableStateOf<String?>(null) }
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        // Seçilen URI'yi imageUri state'ine kaydet
         imageUri = uri?.toString()
     }
 
-    // Baskın renk hesaplama (Gölge için)
     val shadowColor by getDominantColor(imageUri)
     val showSuccessAnimation by viewModel.showSuccessAnimation.collectAsState()
-
+    val successMessage by viewModel.successMessage.collectAsState()
 
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.done))
     val progress by animateLottieCompositionAsState(
@@ -64,16 +64,36 @@ fun AddContactScreen(
         }
     }
 
+    // Success mesajı görününce sıfırla (3 saniye sonra)
+    LaunchedEffect(successMessage) {
+        if (successMessage != null && !showSuccessAnimation) { // Animasyon bitince, sadece mesajı sıfırla
+            kotlinx.coroutines.delay(3000)
+            viewModel.clearSuccessMessage()
+        }
+    }
+
+    // Kaydetme işlemi
+    val saveContact = {
+        keyboardController?.hide()
+        val contact = Contact(name.trim(), surname.trim(), phone.trim(), imageUri)
+        viewModel.addContact(contact)
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Add New Contact") },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Geri"
-                        )
+                    TextButton(onClick = { navController.popBackStack() }) {
+                        Text("Cancel", color = MaterialTheme.colorScheme.primary)
+                    }
+                },
+                actions = {
+                    TextButton(
+                        onClick = saveContact,
+                        enabled = phone.isNotBlank()
+                    ) {
+                        Text("Done", color = MaterialTheme.colorScheme.primary)
                     }
                 }
             )
@@ -84,18 +104,17 @@ fun AddContactScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 32.dp, vertical = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally, // Ortalamak için
+                horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // FOTOĞRAF SEÇİM ALANI
+                // ... (Giriş Alanları) ...
                 ContactImage(
                     imageUri = imageUri,
-                    shadowColor = shadowColor, // Gölge rengini uygula
+                    shadowColor = shadowColor,
                     modifier = Modifier
                         .size(100.dp)
                         .clickable {
-                        // Galeriye erişimi başlat
-                        imagePickerLauncher.launch("image/*")
+                            imagePickerLauncher.launch("image/*")
                         }
                 )
                 Spacer(Modifier.height(16.dp))
@@ -120,34 +139,48 @@ fun AddContactScreen(
                 )
 
                 Spacer(Modifier.height(8.dp))
-
-                val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
-                Button(
-                    onClick = {
-                        keyboardController?.hide()
-                        // imageUri'yi Contact nesnesine ekle
-                        val contact = Contact(name.trim(), surname.trim(), phone.trim(), imageUri)
-                        viewModel.addContact(contact)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = phone.isNotBlank()
-                ) {
-                    Text("Save")
-                }
+                Spacer(Modifier.height(48.dp))
             }
 
-            // Lottie Animasyonu
+            // YENİ: Lottie Animasyonu ve Mesajı Birleştirme
             if (showSuccessAnimation && composition != null) {
-                LottieAnimation(
-                    composition,
-                    progress = { progress },
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(Color.White.copy(alpha = 0.8f))
-                )
+                        .zIndex(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    LottieAnimation(
+                        composition,
+                        progress = { progress },
+                        modifier = Modifier.size(200.dp)
+                    )
+                    // İSTEK 4: Lottie'nin hemen altında mesajı göster.
+                    if (successMessage != null) {
+                        // successMessage'ı SuccessMessagePopup ile değil, basit Text ile stilize ederek göster.
+                        // Daha sonra SuccessMessagePopup da ekranda alt kısımda gösterilecektir.
+                        Text(
+                            text = successMessage!!,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                }
+            }
+
+            // Başarı Mesajı (Yalnızca animasyon gösterilmiyorsa alt kısımda göster)
+            // Lottie gösterilirken mesaj ortada gösterildiği için burada koşul ekledik.
+            if (!showSuccessAnimation) {
+                successMessage?.let { message ->
+                    SuccessMessagePopup(
+                        message = message,
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    )
+                }
             }
         }
     }
 }
-
-// Mükerrer ContactImage kaldırıldı; utils/ContactImage kullanılacak

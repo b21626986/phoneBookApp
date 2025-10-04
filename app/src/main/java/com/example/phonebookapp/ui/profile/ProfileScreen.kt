@@ -8,6 +8,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info // YENİ İçe aktarma
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,10 +26,9 @@ import com.example.phonebookapp.model.Contact
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.example.phonebookapp.ui.utils.ContactImage
-import com.example.phonebookapp.ui.utils.SuccessMessagePopup // YENİ İçe aktarma
-import com.example.phonebookapp.ui.utils.ContactUtils.isContactInDevice // YENİ İçe aktarma
+import com.example.phonebookapp.ui.utils.SuccessMessagePopup
+import com.example.phonebookapp.ui.utils.ContactUtils.isContactInDevice
 import android.net.Uri
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.ui.zIndex
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,9 +41,9 @@ fun ProfileScreen(
 ) {
     val contacts by viewModel.contacts.collectAsState()
     val showSuccessAnimation by viewModel.showSuccessAnimation.collectAsState()
-    val contactToDelete by viewModel.contactToDelete.collectAsState() // YENİ
-    val showDeleteConfirmation by viewModel.showDeleteConfirmation.collectAsState() // YENİ
-    val successMessage by viewModel.successMessage.collectAsState() // YENİ
+    val contactToDelete by viewModel.contactToDelete.collectAsState()
+    val showDeleteConfirmation by viewModel.showDeleteConfirmation.collectAsState()
+    val successMessage by viewModel.successMessage.collectAsState()
     val context = LocalContext.current
 
     val isEditMode = mode == "edit"
@@ -69,11 +69,13 @@ fun ProfileScreen(
         if (progress >= 1f && showSuccessAnimation) {
             viewModel.resetSuccessAnimation()
             // Başarılı işlem sonrası Profile ekranından Contacts ekranına dön
+            // Silme işlemi viewmodel'da halledildiğinde bu kısım tetiklenmez, sadece update.
+            // Update sonrası ContactsScreen'e dönüyoruz.
             navController.popBackStack()
         }
     }
 
-    // YENİ: Success mesajı görününce sıfırla (3 saniye sonra)
+    // Success mesajı görününce sıfırla (3 saniye sonra)
     LaunchedEffect(successMessage) {
         if (successMessage != null) {
             kotlinx.coroutines.delay(3000)
@@ -88,7 +90,7 @@ fun ProfileScreen(
     var imageUri by remember { mutableStateOf(initialContact.imageUri) }
     val shadowColor by getDominantColor(imageUri)
 
-    // YENİ: Cihaz rehberi durumunu kontrol et
+    // Cihaz rehberi durumunu kontrol et
     var isContactSavedToDevice by remember { mutableStateOf(false) }
     LaunchedEffect(phoneNumber) {
         isContactSavedToDevice = isContactInDevice(context.contentResolver, phoneNumber)
@@ -109,7 +111,7 @@ fun ProfileScreen(
                 title = { Text(if (isEditMode) "Edit Contact" else "Contact Profile") },
                 navigationIcon = {
                     if (isEditMode) {
-                        // 2. İSTEK: Cancel butonu (Edit modunda)
+                        // CANCEL butonu
                         TextButton(onClick = { navController.popBackStack() }) {
                             Text("Cancel", color = MaterialTheme.colorScheme.primary)
                         }
@@ -124,7 +126,7 @@ fun ProfileScreen(
                 },
                 actions = {
                     if (isEditMode) {
-                        // 2. İSTEK: Done butonu (Edit modunda)
+                        // DONE butonu
                         val hasChanges = (
                                 name != initialContact.name ||
                                         surname != initialContact.surname ||
@@ -176,7 +178,7 @@ fun ProfileScreen(
                                     text = { Text("Delete") },
                                     onClick = {
                                         showMenu = false
-                                        // SİLME İŞLEMİ: Pop-up'ı tetikle
+                                        // Silme pop-up'ını tetikle
                                         viewModel.startDelete(initialContact)
                                     },
                                     leadingIcon = {
@@ -244,36 +246,27 @@ fun ProfileScreen(
 
                     Spacer(Modifier.height(8.dp))
 
-                    // Edit modunda Done/Cancel'ı TopAppBar'a taşıdığımız için alttaki Save butonu kaldırıldı.
+                    // BURASI KALDIRILDI: Edit modundaki alt Delete butonu artık yok.
                     if (isEditMode) {
-                        // Delete Button: Sadece edit modunda gösterilir
-                        Button(
-                            onClick = {
-                                // SİLME İŞLEMİ: Pop-up'ı tetikle
-                                viewModel.startDelete(initialContact)
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Delete", color = MaterialTheme.colorScheme.onError)
-                        }
+                        Spacer(Modifier.height(48.dp)) // Boşluk tutucu
                     }
                     else {
-                        // YENİ: Rehbere Kaydet Butonu (View modunda gösterilir)
+                        // Rehbere Kaydet Butonu (View modunda gösterilir)
                         Button(
                             onClick = {
                                 saveContactToDevice(context, initialContact)
                                 isContactSavedToDevice = true // Anında UI güncellemesi
-                                viewModel._successMessage.value = "User is added to your phone!" // Başarı mesajını ayarla
+                                // Başarı mesajını ayarla
+                                viewModel._successMessage.value = "User is added to your phone!"
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = !isContactSavedToDevice, // 5. İSTEK
+                            enabled = !isContactSavedToDevice, // Rehbere kayıtlıysa disabled
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
                         ) {
                             Text("Rehbere Kaydet", color = MaterialTheme.colorScheme.onTertiary)
                         }
 
-                        // 5. İSTEK: Rehbere kayıtlıysa bilgi mesajı
+                        // Rehbere kayıtlıysa bilgi mesajı
                         if (isContactSavedToDevice) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
@@ -293,7 +286,7 @@ fun ProfileScreen(
                     }
                 }
 
-                // YENİ: Silme Onayı Pop-up'ı (AlertDialog)
+                // Silme Onayı Pop-up'ı (AlertDialog)
                 if (showDeleteConfirmation && contactToDelete != null) {
                     AlertDialog(
                         onDismissRequest = { viewModel.cancelDelete() },
@@ -329,7 +322,7 @@ fun ProfileScreen(
                     )
                 }
 
-                // YENİ: Başarı Mesajı
+                // Başarı Mesajı
                 successMessage?.let { message ->
                     SuccessMessagePopup(
                         message = message,

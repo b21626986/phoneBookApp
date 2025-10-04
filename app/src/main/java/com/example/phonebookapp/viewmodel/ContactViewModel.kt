@@ -38,13 +38,11 @@ class ContactViewModel : ViewModel() {
     private val _contactToDelete = MutableStateFlow<Contact?>(null)
     val contactToDelete: StateFlow<Contact?> = _contactToDelete
 
-    // YENİ: Pop-up'ı göstermek için
     fun startDelete(contact: Contact) {
         _contactToDelete.value = contact
         _showDeleteConfirmation.value = true
     }
 
-    // YENİ: Pop-up'ı iptal etmek için
     fun cancelDelete() {
         _contactToDelete.value = null
         _showDeleteConfirmation.value = false
@@ -169,7 +167,6 @@ class ContactViewModel : ViewModel() {
                     }
                     fetchContactsFromApi()
                     _showSuccessAnimation.value = true
-                    // YENİ: Başarı mesajını ayarla
                     _successMessage.value = "All Done! New contact saved!"
                 } else {
                     println("API Ekleme Başarısız: ${response.code()}")
@@ -191,8 +188,7 @@ class ContactViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                // Not: API'den update fonksiyonu varsayımsal olarak çağrılıyor.
-                // Eğer API'nizde PUT/PATCH metodu ve uygun endpoint varsa burada çağırılmalıdır.
+                // API update fonksiyonu çağrılmalıdır. (Varsayımsal)
                 // val response = apiService.updateContact(oldPhone, updatedContact)
 
                 // if (response.isSuccessful) {
@@ -206,7 +202,6 @@ class ContactViewModel : ViewModel() {
                 }
                 fetchContactsFromApi()
                 _showSuccessAnimation.value = true
-                // YENİ: Başarı mesajını ayarla
                 _successMessage.value = "User is updated!"
                 // } else {
                 //     println("API Güncelleme Başarısız: ${response.code()}")
@@ -218,23 +213,21 @@ class ContactViewModel : ViewModel() {
     }
 
 
-    // Contact silme (YENİ: API çağrısı eklendi)
+    // Contact silme (API çağrısı eklendi)
     fun deleteContactConfirmed(contact: Contact) {
-        _showDeleteConfirmation.value = false // Pop-up'ı kapat
-        _contactToDelete.value = null // Silinecek kişiyi sıfırla
+        _showDeleteConfirmation.value = false
+        _contactToDelete.value = null
 
         viewModelScope.launch {
             try {
-                // Not: API'den delete fonksiyonu varsayımsal olarak çağrılıyor.
+                // API delete fonksiyonu çağrılmalıdır. (Varsayımsal)
                 // val response = apiService.deleteContact(contact.phone)
 
                 // if (response.isSuccessful) {
                 _contacts.update { currentList ->
                     currentList.filter { it.phone != contact.phone }
                 }
-                // Silme sonrası API'den yeniden çekmeye gerek yok, UI güncellendi.
                 _showSuccessAnimation.value = true
-                // YENİ: Başarı mesajını ayarla
                 _successMessage.value = "User is deleted!"
                 // } else {
                 //     println("API Silme Başarısız: ${response.code()}")

@@ -18,21 +18,26 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 @Composable
 fun SwipeRow(
-    itemContent: @Composable () -> Unit,
+    // itemContent artık kaydırma durumunu alacak
+    itemContent: @Composable (isSwiped: Boolean) -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
-    // Animatable kullanıyoruz
     val offsetX = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     var isSwipeOpen by remember { mutableStateOf(false) }
 
-    // Swipe eşikleri
-    val swipeThreshold = 120f // İşlem tetikleme eşiği
-    val backgroundThreshold = 80f // Arka plan gösterme eşiği
+    val swipeThreshold = 120f
+    val backgroundThreshold = 80f
+
+    // Kaydırma miktarının sıfırdan farklı olup olmadığını kontrol eder
+    val isActivelySwiped by remember {
+        derivedStateOf { abs(offsetX.value) > 1f }
+    }
 
     Box(
         modifier = Modifier
@@ -42,20 +47,16 @@ fun SwipeRow(
             .pointerInput(Unit) {
                 detectHorizontalDragGestures(
                     onDragEnd = {
-                        // Drag bittiğinde işlem kontrolü yap
                         scope.launch {
                             val currentValue = offsetX.value
 
                             if (currentValue < -swipeThreshold) {
-                                // Swipe left - açık pozisyonda kal
                                 isSwipeOpen = true
                                 offsetX.animateTo(-120f)
                             } else if (currentValue > 0) {
-                                // Sağa swipe - kapat
                                 isSwipeOpen = false
                                 offsetX.animateTo(0f)
                             } else if (currentValue != 0f && !isSwipeOpen) {
-                                // Eşiği geçmediyse geri dön
                                 offsetX.animateTo(0f)
                             }
                         }
@@ -63,11 +64,9 @@ fun SwipeRow(
                 ) { change, dragAmount ->
                     scope.launch {
                         val newValue = offsetX.value + dragAmount
-                        // Sadece sola swipe'a izin ver, sağa swipe'da kapat
                         if (newValue <= 0) {
                             offsetX.snapTo(newValue)
                         } else if (isSwipeOpen) {
-                            // Açıkken sağa swipe ile kapat
                             offsetX.snapTo(newValue)
                         }
                     }
@@ -120,7 +119,8 @@ fun SwipeRow(
         Box(
             modifier = Modifier.offset { IntOffset(offsetX.value.toInt(), 0) }
         ) {
-            itemContent()
+            // Kaydırma durumunu iletiyoruz
+            itemContent(isActivelySwiped)
         }
     }
 

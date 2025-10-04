@@ -39,7 +39,7 @@ import com.airbnb.lottie.compose.*
 import com.example.phonebookapp.R
 import com.example.phonebookapp.ui.SwipeRow
 import com.example.phonebookapp.ui.utils.ContactImage
-import com.example.phonebookapp.ui.utils.SuccessMessagePopup // YENİ İçe aktarma
+import com.example.phonebookapp.ui.utils.SuccessMessagePopup
 import com.example.phonebookapp.viewmodel.ContactViewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -55,9 +55,9 @@ fun ContactsScreen(
     val searchText by viewModel.searchText.collectAsState()
     val searchHistory by viewModel.searchHistory.collectAsState()
     val showSuccessAnimation by viewModel.showSuccessAnimation.collectAsState()
-    val contactToDelete by viewModel.contactToDelete.collectAsState() // YENİ
-    val showDeleteConfirmation by viewModel.showDeleteConfirmation.collectAsState() // YENİ
-    val successMessage by viewModel.successMessage.collectAsState() // YENİ: Success mesajı
+    val contactToDelete by viewModel.contactToDelete.collectAsState()
+    val showDeleteConfirmation by viewModel.showDeleteConfirmation.collectAsState()
+    val successMessage by viewModel.successMessage.collectAsState()
     val context = LocalContext.current
 
     val focusRequester = remember { FocusRequester() }
@@ -73,14 +73,12 @@ fun ContactsScreen(
         restartOnPlay = true
     )
 
-    // Lottie animasyonu bittiğinde durumu sıfırla
     LaunchedEffect(progress) {
         if (progress >= 1f && showSuccessAnimation) {
             viewModel.resetSuccessAnimation()
         }
     }
 
-    // YENİ: Success mesajı görününce sıfırla (3 saniye sonra)
     LaunchedEffect(successMessage) {
         if (successMessage != null) {
             kotlinx.coroutines.delay(3000)
@@ -184,7 +182,8 @@ fun ContactsScreen(
                                 }
 
                                 SwipeRow(
-                                    itemContent = {
+                                    // isSwiped parametresi alındı
+                                    itemContent = { isSwiped ->
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -209,7 +208,8 @@ fun ContactsScreen(
                                                     Text(contact.phone, color = MaterialTheme.colorScheme.primary)
                                                 }
                                             }
-                                            if (isDeviceContact) {
+                                            // Kaydırılmadığı sürece ikonu göster
+                                            if (isDeviceContact && !isSwiped) {
                                                 Spacer(Modifier.width(8.dp))
                                                 Icon(
                                                     imageVector = Icons.Default.PhoneAndroid,
@@ -222,7 +222,6 @@ fun ContactsScreen(
                                     onEditClick = {
                                         navController.navigate("profile/${contact.phone}?mode=edit")
                                     },
-                                    // SİLME İŞLEMİ: Pop-up'ı tetikler
                                     onDeleteClick = {
                                         viewModel.startDelete(contact)
                                     }
@@ -276,7 +275,7 @@ fun ContactsScreen(
                     }
                 }
 
-                // YENİ: Silme Onayı Pop-up'ı (AlertDialog)
+                // Silme Onayı Pop-up'ı (AlertDialog)
                 if (showDeleteConfirmation && contactToDelete != null) {
                     AlertDialog(
                         onDismissRequest = { viewModel.cancelDelete() },
@@ -308,11 +307,11 @@ fun ContactsScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(Color.White.copy(alpha = 0.8f))
-                            .zIndex(1f) // Pop-up üstünde
+                            .zIndex(1f)
                     )
                 }
 
-                // YENİ: Başarı Mesajı
+                // Başarı Mesajı
                 successMessage?.let { message ->
                     SuccessMessagePopup(
                         message = message,
