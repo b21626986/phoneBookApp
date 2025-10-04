@@ -25,8 +25,11 @@ import com.example.phonebookapp.model.Contact
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.example.phonebookapp.ui.utils.ContactImage
+import com.example.phonebookapp.ui.utils.SuccessMessagePopup // YENİ İçe aktarma
+import com.example.phonebookapp.ui.utils.ContactUtils.isContactInDevice // YENİ İçe aktarma
 import android.net.Uri
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.ui.zIndex
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,12 +41,14 @@ fun ProfileScreen(
 ) {
     val contacts by viewModel.contacts.collectAsState()
     val showSuccessAnimation by viewModel.showSuccessAnimation.collectAsState()
+    val contactToDelete by viewModel.contactToDelete.collectAsState() // YENİ
+    val showDeleteConfirmation by viewModel.showDeleteConfirmation.collectAsState() // YENİ
+    val successMessage by viewModel.successMessage.collectAsState() // YENİ
     val context = LocalContext.current
 
     val isEditMode = mode == "edit"
     var showMenu by remember { mutableStateOf(false) }
 
-    // ... (Lottie kodları aynı kaldı) ...
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.done))
     val progress by animateLottieCompositionAsState(
         composition,
@@ -54,9 +59,8 @@ fun ProfileScreen(
 
     val initialContact = remember(phone) { contacts.find { it.phone == phone } }
 
-
-
     if (initialContact == null) {
+        // Kişi silinmişse veya bulunamazsa geri dön
         LaunchedEffect(Unit) { navController.popBackStack() }
         return
     }
@@ -64,43 +68,84 @@ fun ProfileScreen(
     LaunchedEffect(progress) {
         if (progress >= 1f && showSuccessAnimation) {
             viewModel.resetSuccessAnimation()
+            // Başarılı işlem sonrası Profile ekranından Contacts ekranına dön
             navController.popBackStack()
         }
     }
 
+    // YENİ: Success mesajı görününce sıfırla (3 saniye sonra)
+    LaunchedEffect(successMessage) {
+        if (successMessage != null) {
+            kotlinx.coroutines.delay(3000)
+            viewModel.clearSuccessMessage()
+        }
+    }
+
+
     var name by remember { mutableStateOf(initialContact.name) }
     var surname by remember { mutableStateOf(initialContact.surname) }
     var phoneNumber by remember { mutableStateOf(initialContact.phone) }
-    var imageUri by remember { mutableStateOf(initialContact.imageUri) } // Yeni state
-    // YENİ: Baskın rengi hesaplama (Simülasyon)
-    val shadowColor by getDominantColor(imageUri) // Baskın rengi izle
+    var imageUri by remember { mutableStateOf(initialContact.imageUri) }
+    val shadowColor by getDominantColor(imageUri)
 
+    // YENİ: Cihaz rehberi durumunu kontrol et
+    var isContactSavedToDevice by remember { mutableStateOf(false) }
+    LaunchedEffect(phoneNumber) {
+        isContactSavedToDevice = isContactInDevice(context.contentResolver, phoneNumber)
+    }
 
     // Fotoğraf Seçimi Launcher'ı
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        // Seçim iptal edilirse mevcut fotoğrafı koru
         if (uri != null) {
             imageUri = uri.toString()
         }
     }
 
-    // ... (Scaffold ve TopAppBar kodları aynı kaldı) ...
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(if (isEditMode) "Edit Contact" else "Contact Profile") },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Geri"
-                        )
+                    if (isEditMode) {
+                        // 2. İSTEK: Cancel butonu (Edit modunda)
+                        TextButton(onClick = { navController.popBackStack() }) {
+                            Text("Cancel", color = MaterialTheme.colorScheme.primary)
+                        }
+                    } else {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Geri"
+                            )
+                        }
                     }
                 },
                 actions = {
-                    if (!isEditMode) {
+                    if (isEditMode) {
+                        // 2. İSTEK: Done butonu (Edit modunda)
+                        val hasChanges = (
+                                name != initialContact.name ||
+                                        surname != initialContact.surname ||
+                                        phoneNumber != initialContact.phone ||
+                                        imageUri != initialContact.imageUri
+                                )
+
+                        TextButton(
+                            onClick = {
+                                val updatedContact = Contact(name, surname, phoneNumber, imageUri)
+                                viewModel.updateContactWithOldPhone(
+                                    oldPhone = initialContact.phone,
+                                    updatedContact = updatedContact
+                                )
+                            },
+                            enabled = hasChanges && phoneNumber.isNotBlank()
+                        ) {
+                            Text("Done", color = MaterialTheme.colorScheme.primary)
+                        }
+
+                    } else {
                         // View mode'da üç nokta menüsü göster
                         Box {
                             IconButton(onClick = { showMenu = true }) {
@@ -131,8 +176,8 @@ fun ProfileScreen(
                                     text = { Text("Delete") },
                                     onClick = {
                                         showMenu = false
-                                        viewModel.deleteContact(initialContact)
-                                        navController.popBackStack()
+                                        // SİLME İŞLEMİ: Pop-up'ı tetikle
+                                        viewModel.startDelete(initialContact)
                                     },
                                     leadingIcon = {
                                         Icon(
@@ -153,20 +198,17 @@ fun ProfileScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(horizontal = 32.dp, vertical = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally, // Ortalamak için
+                    horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // FOTOĞRAF GÖRÜNTÜLEME VE DÜZENLEME ALANI
                     ContactImage(
                         imageUri = imageUri,
-                        // shadowColor'ı ContactImage'e iletiyoruz
                         shadowColor = shadowColor,
                         modifier = Modifier
                             .size(120.dp)
                             .then(if (isEditMode) Modifier.clickable {
-                                // Edit modundaysa galeriye erişimi başlat
                                 imagePickerLauncher.launch("image/*")
-
                             } else Modifier)
                     )
                     Spacer(Modifier.height(16.dp))
@@ -178,7 +220,6 @@ fun ProfileScreen(
                         Spacer(Modifier.height(8.dp))
                     }
 
-                    // ... (OutlinedTextField'ler aynı kaldı) ...
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
@@ -203,35 +244,13 @@ fun ProfileScreen(
 
                     Spacer(Modifier.height(8.dp))
 
-                    // Save Button: Sadece edit modunda gösterilir
+                    // Edit modunda Done/Cancel'ı TopAppBar'a taşıdığımız için alttaki Save butonu kaldırıldı.
                     if (isEditMode) {
-                        Button(
-                            onClick = {
-                                // imageUri'yi Contact nesnesine ekle
-                                val updatedContact = Contact(name, surname, phoneNumber, imageUri)
-                                viewModel.updateContactWithOldPhone(
-                                    oldPhone = initialContact.phone,
-                                    updatedContact = updatedContact
-                                )
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            // Sadece bir değişiklik olduğunda aktif olsun
-                            enabled = phoneNumber.isNotBlank() && (
-                                    name != initialContact.name ||
-                                            surname != initialContact.surname ||
-                                            phoneNumber != initialContact.phone ||
-                                            imageUri != initialContact.imageUri
-                                    )
-                        ) {
-                            Text("Save Changes")
-                        }
-
-                        Spacer(Modifier.height(8.dp))
-
                         // Delete Button: Sadece edit modunda gösterilir
                         Button(
                             onClick = {
-                                viewModel.deleteContact(initialContact)
+                                // SİLME İŞLEMİ: Pop-up'ı tetikle
+                                viewModel.startDelete(initialContact)
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                             modifier = Modifier.fillMaxWidth()
@@ -239,19 +258,63 @@ fun ProfileScreen(
                             Text("Delete", color = MaterialTheme.colorScheme.onError)
                         }
                     }
-                    else{
+                    else {
                         // YENİ: Rehbere Kaydet Butonu (View modunda gösterilir)
                         Button(
                             onClick = {
-                                // Cihaz Rehberine Kaydetme işlemi
                                 saveContactToDevice(context, initialContact)
+                                isContactSavedToDevice = true // Anında UI güncellemesi
+                                viewModel._successMessage.value = "User is added to your phone!" // Başarı mesajını ayarla
                             },
                             modifier = Modifier.fillMaxWidth(),
+                            enabled = !isContactSavedToDevice, // 5. İSTEK
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
                         ) {
                             Text("Rehbere Kaydet", color = MaterialTheme.colorScheme.onTertiary)
                         }
+
+                        // 5. İSTEK: Rehbere kayıtlıysa bilgi mesajı
+                        if (isContactSavedToDevice) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = "Info",
+                                    tint = MaterialTheme.colorScheme.tertiary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = "This contact is already saved your phone.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
+                        }
                     }
+                }
+
+                // YENİ: Silme Onayı Pop-up'ı (AlertDialog)
+                if (showDeleteConfirmation && contactToDelete != null) {
+                    AlertDialog(
+                        onDismissRequest = { viewModel.cancelDelete() },
+                        title = { Text("Delete Contact") },
+                        text = { Text("Are you sure you want to delete this contact?") },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    viewModel.deleteContactConfirmed(contactToDelete!!)
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Text("Yes", color = MaterialTheme.colorScheme.onError)
+                            }
+                        },
+                        dismissButton = {
+                            OutlinedButton(onClick = { viewModel.cancelDelete() }) {
+                                Text("No")
+                            }
+                        }
+                    )
                 }
 
                 // Lottie Animasyonu
@@ -262,6 +325,15 @@ fun ProfileScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(Color.White.copy(alpha = 0.8f))
+                            .zIndex(1f)
+                    )
+                }
+
+                // YENİ: Başarı Mesajı
+                successMessage?.let { message ->
+                    SuccessMessagePopup(
+                        message = message,
+                        modifier = Modifier.align(Alignment.BottomCenter)
                     )
                 }
             }

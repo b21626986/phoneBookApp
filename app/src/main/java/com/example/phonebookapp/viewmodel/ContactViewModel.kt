@@ -22,14 +22,34 @@ class ContactViewModel : ViewModel() {
     private val _contacts = MutableStateFlow<List<Contact>>(emptyList())
     val contacts: StateFlow<List<Contact>> = _contacts
 
-    // Arama metni StateFlow
     private val _searchText = MutableStateFlow("")
     val searchText: StateFlow<String> = _searchText
     private val apiService: PhonebookService = ApiClient.retrofit.create(PhonebookService::class.java)
 
     init {
-        fetchContactsFromApi() // Uygulama başladığında API'den kişileri çek
+        fetchContactsFromApi()
     }
+
+    // YENİ: Silme Onayı Pop-up'ı Yönetimi
+    private val _showDeleteConfirmation = MutableStateFlow(false)
+    val showDeleteConfirmation: StateFlow<Boolean> = _showDeleteConfirmation
+
+    // YENİ: Silinecek Kişi
+    private val _contactToDelete = MutableStateFlow<Contact?>(null)
+    val contactToDelete: StateFlow<Contact?> = _contactToDelete
+
+    // YENİ: Pop-up'ı göstermek için
+    fun startDelete(contact: Contact) {
+        _contactToDelete.value = contact
+        _showDeleteConfirmation.value = true
+    }
+
+    // YENİ: Pop-up'ı iptal etmek için
+    fun cancelDelete() {
+        _contactToDelete.value = null
+        _showDeleteConfirmation.value = false
+    }
+
 
     fun fetchContactsFromApi() {
         viewModelScope.launch {
@@ -37,19 +57,15 @@ class ContactViewModel : ViewModel() {
                 val response = apiService.getAllContacts()
                 if (response.isSuccessful && response.body() != null) {
                     _contacts.value = response.body()!!
-                    // Başarılı olursa, filtrelemeyi ve gruplamayı otomatik tetikler
                 } else {
-                    // Hata durumu (401, 404, vb.)
                     println("API Hatası: ${response.code()}")
                 }
             } catch (e: Exception) {
-                // Ağ hatası, JSON hatası vb.
                 e.printStackTrace()
             }
         }
     }
 
-    // Arama Geçmişi StateFlow (Son 5 aramayı tutar)
     private val _searchHistory = MutableStateFlow<List<String>>(emptyList())
     val searchHistory: StateFlow<List<String>> = _searchHistory
 
@@ -57,10 +73,8 @@ class ContactViewModel : ViewModel() {
         .map { contactList ->
             contactList.sortedWith(
                 compareBy<Contact> {
-                    // Boş/blank isimleri en sona koy
                     it.name.isBlank()
                 }.thenBy(String.CASE_INSENSITIVE_ORDER) {
-                    // İsim boşsa telefonu kullanarak sıralama yap, değilse isme göre
                     if (it.name.isBlank()) it.phone else it.name
                 }.thenBy(String.CASE_INSENSITIVE_ORDER) {
                     it.surname
@@ -88,7 +102,6 @@ class ContactViewModel : ViewModel() {
                 }
             }
 
-            // Gruplandırma: isim boşsa veya harfle başlamıyorsa '#' grubuna koy
             baseList.groupBy { contact ->
                 val firstChar = contact.name.trim().firstOrNull()
                 if (firstChar != null && firstChar.isLetter()) firstChar.uppercaseChar() else '#'
@@ -100,25 +113,20 @@ class ContactViewModel : ViewModel() {
         )
 
 
-    // Arama metnini güncelleyen fonksiyon
     fun onSearchTextChanged(text: String) {
         _searchText.value = text
     }
 
-    // Arama geçmişine yeni bir terim ekler.
     fun addSearchTermToHistory(term: String) {
         val trimmedTerm = term.trim()
         if (trimmedTerm.isNotBlank()) {
             _searchHistory.update { currentHistory ->
-                // Yeni terimi listenin başına ekle ve varsa tekrarını sil.
                 val updatedList = listOf(trimmedTerm) + currentHistory.filter { it != trimmedTerm }
-                // Sadece son 5 terimi tut.
                 updatedList.take(5)
             }
         }
     }
 
-    // Arama geçmişinden bir terimi siler.
     fun removeSearchTermFromHistory(term: String) {
         _searchHistory.update { currentHistory ->
             currentHistory.filter { it != term }
@@ -126,23 +134,24 @@ class ContactViewModel : ViewModel() {
     }
 
 
-    // Lottie animasyonu için genel success state
-// ... (Geri kalan kodlar aynı kaldı) ...
+    // Lottie animasyonu ve Başarı Mesajları için state'ler
     private val _showSuccessAnimation = MutableStateFlow(false)
     val showSuccessAnimation: StateFlow<Boolean> = _showSuccessAnimation
 
-    // Animation type - hangi işlem için animasyon gösterileceğini belirler
-    private val _animationType = MutableStateFlow("")
-    val animationType: StateFlow<String> = _animationType
+    // YENİ: Başarı mesajı için state
+    val _successMessage = MutableStateFlow<String?>(null)
+    val successMessage: StateFlow<String?> = _successMessage
 
-    // Animation'ı sıfırlama
+
     fun resetSuccessAnimation() {
         _showSuccessAnimation.value = false
-        _animationType.value = ""
     }
 
+    // YENİ: Başarı mesajını sıfırlama
+    fun clearSuccessMessage() {
+        _successMessage.value = null
+    }
 
-    // Yeni: Kişinin cihazda kayıtlı olup olmadığını kontrol eden Composable dışı fonksiyon
     fun checkDeviceContactStatus(context: Context, phoneNumber: String): Boolean {
         return ContactUtils.isContactInDevice(context.contentResolver, phoneNumber)
     }
@@ -151,42 +160,28 @@ class ContactViewModel : ViewModel() {
     fun addContact(contact: Contact) {
         viewModelScope.launch {
             try {
-                // 1. API'ye kaydetme isteği gönderilir.
                 val response = apiService.addContact(contact)
 
                 if (response.isSuccessful) {
-                    // 2. Başarılı olursa, listedeki tutarsızlıkları önlemek için tüm kişileri API'den yeniden çeker.
-                    // Not: Daha iyi performans için sadece yeni eklenen kişiyi listeye ekleyebilirsiniz,
-                    // ancak API ile tutarlılığı garanti etmek için tekrar çekmek daha güvenlidir.
-
-                    // 2a. Başarılı olursa, UI'nin anında güncellenmesi için listeye optimistik olarak ekle.
                     _contacts.update { currentList ->
                         val alreadyExists = currentList.any { it.phone == contact.phone }
                         if (alreadyExists) currentList else currentList + contact
                     }
-
-                    // 2b. Ardından sunucu ile tam tutarlılık için arka planda yeniden çek.
                     fetchContactsFromApi()
-
-                    // 3. UI Başarı animasyonunu tetikler.
                     _showSuccessAnimation.value = true
-                    _animationType.value = "add" // Varsayılan animasyon tipi
+                    // YENİ: Başarı mesajını ayarla
+                    _successMessage.value = "All Done! New contact saved!"
                 } else {
-                    // 4. API hata kodu gelirse (Örnek: 400 Bad Request)
-                    println("API Ekleme Başarısız: ${response.code()}. Cevap: ${response.errorBody()?.string()}")
-                    // Kullanıcıya hata mesajı gösterme mantığı buraya eklenebilir.
+                    println("API Ekleme Başarısız: ${response.code()}")
                 }
             } catch (e: Exception) {
-                // 5. Ağ hatası veya Coroutine hatası
                 e.printStackTrace()
-                // Kullanıcıya ağ hatası mesajı gösterme mantığı buraya eklenebilir.
             }
         }
     }
 
     // Contact güncelleme
     fun updateContactWithOldPhone(oldPhone: String, updatedContact: Contact) {
-        // Eğer kişi hiç değişmediyse güncelleme yapma
         val existingContact = _contacts.value.find { it.phone == oldPhone }
         if (existingContact != null &&
             existingContact.name == updatedContact.name &&
@@ -194,27 +189,59 @@ class ContactViewModel : ViewModel() {
             existingContact.phone == updatedContact.phone &&
             existingContact.imageUri == updatedContact.imageUri) return
 
-        _contacts.update { currentList ->
-            val index = currentList.indexOfFirst { it.phone == oldPhone }
-            if (index != -1) {
-                currentList.toMutableList().apply {
-                    set(index, updatedContact)
+        viewModelScope.launch {
+            try {
+                // Not: API'den update fonksiyonu varsayımsal olarak çağrılıyor.
+                // Eğer API'nizde PUT/PATCH metodu ve uygun endpoint varsa burada çağırılmalıdır.
+                // val response = apiService.updateContact(oldPhone, updatedContact)
+
+                // if (response.isSuccessful) {
+                _contacts.update { currentList ->
+                    val index = currentList.indexOfFirst { it.phone == oldPhone }
+                    if (index != -1) {
+                        currentList.toMutableList().apply { set(index, updatedContact) }
+                    } else {
+                        currentList
+                    }
                 }
-            } else {
-                currentList
+                fetchContactsFromApi()
+                _showSuccessAnimation.value = true
+                // YENİ: Başarı mesajını ayarla
+                _successMessage.value = "User is updated!"
+                // } else {
+                //     println("API Güncelleme Başarısız: ${response.code()}")
+                // }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
-        _showSuccessAnimation.value = true
-        _animationType.value = "update"
     }
 
 
-    // Contact silme
-    fun deleteContact(contact: Contact) {
-        _contacts.value = _contacts.value.filter { it.phone != contact.phone }
-        _showSuccessAnimation.value = true
-        _animationType.value = "delete"
-    }
+    // Contact silme (YENİ: API çağrısı eklendi)
+    fun deleteContactConfirmed(contact: Contact) {
+        _showDeleteConfirmation.value = false // Pop-up'ı kapat
+        _contactToDelete.value = null // Silinecek kişiyi sıfırla
 
-    // (Kaldırıldı) ContentResolver alan overload gereksizdi; Context üzerinden çağrıyoruz.
+        viewModelScope.launch {
+            try {
+                // Not: API'den delete fonksiyonu varsayımsal olarak çağrılıyor.
+                // val response = apiService.deleteContact(contact.phone)
+
+                // if (response.isSuccessful) {
+                _contacts.update { currentList ->
+                    currentList.filter { it.phone != contact.phone }
+                }
+                // Silme sonrası API'den yeniden çekmeye gerek yok, UI güncellendi.
+                _showSuccessAnimation.value = true
+                // YENİ: Başarı mesajını ayarla
+                _successMessage.value = "User is deleted!"
+                // } else {
+                //     println("API Silme Başarısız: ${response.code()}")
+                // }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 }

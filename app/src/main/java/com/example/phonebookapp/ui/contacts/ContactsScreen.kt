@@ -7,7 +7,6 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.filled.PhoneAndroid
@@ -34,11 +33,13 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.navigation.NavHostController
 import com.airbnb.lottie.compose.*
 import com.example.phonebookapp.R
 import com.example.phonebookapp.ui.SwipeRow
 import com.example.phonebookapp.ui.utils.ContactImage
+import com.example.phonebookapp.ui.utils.SuccessMessagePopup // YENİ İçe aktarma
 import com.example.phonebookapp.viewmodel.ContactViewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -54,7 +55,10 @@ fun ContactsScreen(
     val searchText by viewModel.searchText.collectAsState()
     val searchHistory by viewModel.searchHistory.collectAsState()
     val showSuccessAnimation by viewModel.showSuccessAnimation.collectAsState()
-    val context = LocalContext.current // Context alınır
+    val contactToDelete by viewModel.contactToDelete.collectAsState() // YENİ
+    val showDeleteConfirmation by viewModel.showDeleteConfirmation.collectAsState() // YENİ
+    val successMessage by viewModel.successMessage.collectAsState() // YENİ: Success mesajı
+    val context = LocalContext.current
 
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
@@ -76,9 +80,17 @@ fun ContactsScreen(
         }
     }
 
+    // YENİ: Success mesajı görününce sıfırla (3 saniye sonra)
+    LaunchedEffect(successMessage) {
+        if (successMessage != null) {
+            kotlinx.coroutines.delay(3000)
+            viewModel.clearSuccessMessage()
+        }
+    }
+
     Scaffold(
         topBar = {
-            Column { // TopAppBar ve SearchBar'ı dikeyde tutmak için Column kullandık
+            Column {
                 TopAppBar(
                     title = { Text("Contacts") },
                     actions = {
@@ -87,7 +99,6 @@ fun ContactsScreen(
                         }
                     }
                 )
-                // Arama Çubuğu
                 OutlinedTextField(
                     value = searchText,
                     onValueChange = { viewModel.onSearchTextChanged(it) },
@@ -104,7 +115,6 @@ fun ContactsScreen(
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(
                         onSearch = {
-                            // ENTER'a basıldığında geçmişe kaydet ve klavyeyi kapat
                             viewModel.addSearchTermToHistory(searchText)
                             focusManager.clearFocus()
                             keyboardController?.hide()
@@ -114,14 +124,13 @@ fun ContactsScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                         .focusRequester(focusRequester)
-                        .onFocusChanged { isSearchFocused = it.isFocused } // Odak değişimini yakalar
+                        .onFocusChanged { isSearchFocused = it.isFocused }
                 )
             }
         },
         content = { paddingValues ->
             Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
 
-                // Kişiler Listesi
                 val totalContactsInGroups = groupedContacts.values.sumOf { it.size }
 
                 LazyColumn(
@@ -146,9 +155,7 @@ fun ContactsScreen(
                             )
                         }
                     } else {
-                        // Grupları alfabetik olarak sırala (A, B, C...)
                         groupedContacts.keys.sorted().forEach { initial ->
-                            // Grup Başlığı (Initial)
                             item {
                                 Text(
                                     text = initial.toString(),
@@ -161,7 +168,6 @@ fun ContactsScreen(
                                 )
                             }
 
-                            // O gruba ait kişiler
                             items(groupedContacts[initial] ?: emptyList(), key = { it.phone }) { contact ->
 
                                 var isDeviceContact by remember(contact.phone) { mutableStateOf(false) }
@@ -185,9 +191,8 @@ fun ContactsScreen(
                                                 .clickable { navController.navigate("profile/${contact.phone}?mode=view") }
                                                 .padding(16.dp),
                                             horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically // Dikeyde hizalama
+                                            verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            // YENİ: Fotoğraf
                                             ContactImage(
                                                 imageUri = contact.imageUri,
                                                 modifier = Modifier.size(40.dp)
@@ -204,7 +209,6 @@ fun ContactsScreen(
                                                     Text(contact.phone, color = MaterialTheme.colorScheme.primary)
                                                 }
                                             }
-                                            // YENİ: Cihaz Rehberi İkonu
                                             if (isDeviceContact) {
                                                 Spacer(Modifier.width(8.dp))
                                                 Icon(
@@ -218,8 +222,9 @@ fun ContactsScreen(
                                     onEditClick = {
                                         navController.navigate("profile/${contact.phone}?mode=edit")
                                     },
+                                    // SİLME İŞLEMİ: Pop-up'ı tetikler
                                     onDeleteClick = {
-                                        viewModel.deleteContact(contact)
+                                        viewModel.startDelete(contact)
                                     }
                                 )
                                 Divider(modifier = Modifier.padding(horizontal = 16.dp))
@@ -228,13 +233,13 @@ fun ContactsScreen(
                     }
                 }
 
-                // Arama Geçmişi Alanı (Listenin üzerine katman olarak eklenmiştir)
+                // Arama Geçmişi Alanı
                 if (isSearchFocused && searchText.isEmpty() && searchHistory.isNotEmpty()) {
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 0.dp), // Listenin hemen üstüne hizala
-                        shadowElevation = 4.dp // Gölgelendirme ile listenin üstünde olduğu belli olur
+                            .padding(top = 0.dp),
+                        shadowElevation = 4.dp
                     ) {
                         Column(
                             modifier = Modifier
@@ -271,7 +276,31 @@ fun ContactsScreen(
                     }
                 }
 
-                // Lottie Animasyonu (Listenin üstünde kalmalı)
+                // YENİ: Silme Onayı Pop-up'ı (AlertDialog)
+                if (showDeleteConfirmation && contactToDelete != null) {
+                    AlertDialog(
+                        onDismissRequest = { viewModel.cancelDelete() },
+                        title = { Text("Delete Contact") },
+                        text = { Text("Are you sure you want to delete this contact?") },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    viewModel.deleteContactConfirmed(contactToDelete!!)
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Text("Yes", color = MaterialTheme.colorScheme.onError)
+                            }
+                        },
+                        dismissButton = {
+                            OutlinedButton(onClick = { viewModel.cancelDelete() }) {
+                                Text("No")
+                            }
+                        }
+                    )
+                }
+
+                // Lottie Animasyonu
                 if (showSuccessAnimation && composition != null) {
                     LottieAnimation(
                         composition,
@@ -279,6 +308,15 @@ fun ContactsScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(Color.White.copy(alpha = 0.8f))
+                            .zIndex(1f) // Pop-up üstünde
+                    )
+                }
+
+                // YENİ: Başarı Mesajı
+                successMessage?.let { message ->
+                    SuccessMessagePopup(
+                        message = message,
+                        modifier = Modifier.align(Alignment.BottomCenter)
                     )
                 }
             }
