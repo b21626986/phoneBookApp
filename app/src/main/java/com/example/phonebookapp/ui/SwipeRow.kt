@@ -5,9 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,13 +13,15 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import com.example.phonebookapp.R
+import com.example.phonebookapp.ui.theme.FigmaPrimaryBlue
+import com.example.phonebookapp.ui.theme.FigmaRedError
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 @Composable
 fun SwipeRow(
-    // itemContent artık kaydırma durumunu alacak
     itemContent: @Composable (isSwiped: Boolean) -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
@@ -31,10 +30,10 @@ fun SwipeRow(
     val scope = rememberCoroutineScope()
     var isSwipeOpen by remember { mutableStateOf(false) }
 
-    val swipeThreshold = 120f
+    val swipeThreshold = 140f
+    val backgroundWidth = 140.dp
     val backgroundThreshold = 80f
 
-    // Kaydırma miktarının sıfırdan farklı olup olmadığını kontrol eder
     val isActivelySwiped by remember {
         derivedStateOf { abs(offsetX.value) > 1f }
     }
@@ -52,7 +51,7 @@ fun SwipeRow(
 
                             if (currentValue < -swipeThreshold) {
                                 isSwipeOpen = true
-                                offsetX.animateTo(-120f)
+                                offsetX.animateTo(-backgroundWidth.toPx())
                             } else if (currentValue > 0) {
                                 isSwipeOpen = false
                                 offsetX.animateTo(0f)
@@ -78,39 +77,60 @@ fun SwipeRow(
             Row(
                 modifier = Modifier
                     .matchParentSize()
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(horizontal = 16.dp),
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Edit ikonu
-                IconButton(
-                    onClick = {
-                        isSwipeOpen = false
-                        scope.launch { offsetX.animateTo(0f) }
-                        onEditClick()
-                    }
+                Row(
+                    modifier = Modifier
+                        .width(backgroundWidth)
+                        .fillMaxHeight(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
+                    // Edit butonu
+                    Button(
+                        onClick = {
+                            isSwipeOpen = false
+                            scope.launch { offsetX.animateTo(0f) }
+                            onEditClick()
+                        },
+                        // FigmaPrimaryBlue arka plan
+                        colors = ButtonDefaults.buttonColors(containerColor = FigmaPrimaryBlue),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        shape = RoundedCornerShape(0.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_edit),
+                            contentDescription = "Edit",
+                            tint = MaterialTheme.colorScheme.onPrimary, // İkon Rengi: Beyaz
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
 
-                // Delete ikonu
-                IconButton(
-                    onClick = {
-                        isSwipeOpen = false
-                        scope.launch { offsetX.animateTo(0f) }
-                        onDeleteClick()
+                    // Delete butonu
+                    Button(
+                        onClick = {
+                            isSwipeOpen = false
+                            scope.launch { offsetX.animateTo(0f) }
+                            onDeleteClick()
+                        },
+                        // FigmaRedError arka plan
+                        colors = ButtonDefaults.buttonColors(containerColor = FigmaRedError),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        shape = RoundedCornerShape(0.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_delete),
+                            contentDescription = "Delete",
+                            tint = MaterialTheme.colorScheme.onPrimary, // İkon Rengi: Beyaz
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete",
-                        tint = MaterialTheme.colorScheme.error
-                    )
                 }
             }
         }
@@ -119,12 +139,10 @@ fun SwipeRow(
         Box(
             modifier = Modifier.offset { IntOffset(offsetX.value.toInt(), 0) }
         ) {
-            // Kaydırma durumunu iletiyoruz
             itemContent(isActivelySwiped)
         }
     }
 
-    // Reset swipe state when offset returns to 0
     LaunchedEffect(offsetX.value) {
         if (offsetX.value == 0f) {
             isSwipeOpen = false

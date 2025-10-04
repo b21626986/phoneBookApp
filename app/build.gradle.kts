@@ -41,6 +41,8 @@ android {
 }
 
 dependencies {
+    implementation(libs.androidx.material3)
+    val roomVersion = "2.6.0"
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -85,6 +87,11 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     // Remove duplicate/explicit versions to avoid runtime mismatches; rely on BOM and helpers above
     implementation(libs.androidx.compose.material3)
+    implementation("com.google.accompanist:accompanist-navigation-material:0.34.0")
+    implementation("androidx.compose.material3:material3:1.2.0")
+    implementation("androidx.compose.material3:material3-window-size-class:1.2.0")
+// Gerekli olabilir
+    implementation("androidx.navigation:navigation-compose:2.7.0") // veya daha yeni
     implementation("androidx.compose.material:material-icons-extended:1.5.0")
     // Retrofit (HTTP İstekleri)
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
@@ -95,10 +102,9 @@ dependencies {
 
     // OkHttp Logging Interceptor (Hata ayıklama için istek/cevap loglarını görmeyi sağlar)
     implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
-
     // Coroutines desteği için Retrofit kütüphanesi (Zaten olabilir, emin olun)
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    kapt("androidx.room:room-compiler:$roomVersion")
 }
 
 // Fonksiyonları aşağıya ekleyebilirsin
@@ -123,4 +129,4 @@ fun room_runtime() = "androidx.room:room-runtime:2.6.0"
 fun room_compiler() = "androidx.room:room-compiler:2.6.0"
 
 fun palette_ktx() = "androidx.palette:palette-ktx:1.0.0"
-fun coroutines_android() = "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
+fun coroutines_android() = "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1"

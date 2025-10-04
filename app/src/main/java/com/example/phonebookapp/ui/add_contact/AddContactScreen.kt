@@ -1,30 +1,32 @@
 package com.example.phonebookapp.ui.screens
 
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.navigation.NavHostController
 import com.airbnb.lottie.compose.*
 import com.example.phonebookapp.R
 import com.example.phonebookapp.model.Contact
-import com.example.phonebookapp.viewmodel.ContactViewModel
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.ui.platform.LocalContext
+import com.example.phonebookapp.ui.theme.FigmaGray_950
+import com.example.phonebookapp.ui.theme.FigmaPrimaryBlue
+import com.example.phonebookapp.ui.theme.ThemedScreen
 import com.example.phonebookapp.ui.utils.ContactImage
-import com.example.phonebookapp.ui.utils.SuccessMessagePopup
 import com.example.phonebookapp.ui.utils.getDominantColor
-import androidx.compose.ui.zIndex
+import com.example.phonebookapp.viewmodel.ContactViewModel
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,72 +36,134 @@ fun AddContactScreen(
 ) {
     var name by remember { mutableStateOf("") }
     var surname by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
+    var phoneNumber by remember { mutableStateOf("") }
     var imageUri by remember { mutableStateOf<String?>(null) }
-    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
-
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        imageUri = uri?.toString()
-    }
-
     val shadowColor by getDominantColor(imageUri)
-    val showSuccessAnimation by viewModel.showSuccessAnimation.collectAsState()
-    val successMessage by viewModel.successMessage.collectAsState()
+    val context = LocalContext.current
+    var isSavingSuccessful by remember { mutableStateOf(false) }
 
+    // Lottie Animasyonu Ayarları
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.done))
     val progress by animateLottieCompositionAsState(
         composition,
-        isPlaying = showSuccessAnimation,
+        isPlaying = isSavingSuccessful,
         iterations = 1,
         restartOnPlay = true
     )
 
-    // Lottie animasyonu bittiğinde geri dön
-    LaunchedEffect(progress) {
-        if (progress >= 1f && showSuccessAnimation) {
-            viewModel.resetSuccessAnimation()
-            navController.popBackStack()
+    // Başarı durumunda navigasyonu yöneten effect
+    LaunchedEffect(isSavingSuccessful) {
+        if (isSavingSuccessful) {
+            delay(3000)
+            navController.navigate("contacts") {
+                popUpTo("contacts") { inclusive = true }
+            }
         }
     }
 
-    // Success mesajı görününce sıfırla (3 saniye sonra)
-    LaunchedEffect(successMessage) {
-        if (successMessage != null && !showSuccessAnimation) { // Animasyon bitince, sadece mesajı sıfırla
-            kotlinx.coroutines.delay(3000)
-            viewModel.clearSuccessMessage()
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            imageUri = uri.toString()
         }
     }
 
-    // Kaydetme işlemi
-    val saveContact = {
-        keyboardController?.hide()
-        val contact = Contact(name.trim(), surname.trim(), phone.trim(), imageUri)
-        viewModel.addContact(contact)
-    }
+    // TEMA UYGULAMASI: Add ekranı için Primary rengi Mavi olarak kalır
+    ThemedScreen(primaryColor = FigmaPrimaryBlue) {
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Add New Contact") },
-                navigationIcon = {
-                    TextButton(onClick = { navController.popBackStack() }) {
-                        Text("Cancel", color = MaterialTheme.colorScheme.primary)
+        // EĞER KAYIT BAŞARILIYSA, SADECE TAMAMEN BEYAZ EKRANI GÖSTER
+        if (isSavingSuccessful) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.White), // Tamamen beyaz arka plan
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // Lottie Animasyonu
+                    if (composition != null) {
+                        LottieAnimation(
+                            composition,
+                            progress = { progress },
+                            modifier = Modifier.size(150.dp)
+                        )
                     }
-                },
-                actions = {
-                    TextButton(
-                        onClick = saveContact,
-                        enabled = phone.isNotBlank()
-                    ) {
-                        Text("Done", color = MaterialTheme.colorScheme.primary)
-                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // 1. Satır: All Done! (Bold ve Büyük)
+                    Text(
+                        text = "All Done!",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 28.sp
+                        ),
+                        color = FigmaGray_950
+                    )
+
+                    // 2. Satır: New contact saved 🎉 (Normal ve Küçük)
+                    Text(
+                        text = "New contact saved 🎉",
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 18.sp
+                        ),
+                        color = FigmaGray_950
+                    )
                 }
-            )
+            }
+            return@ThemedScreen
         }
-    ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+
+        // isSavingSuccessful = false İSE, NORMAL FORMU GÖSTERİR
+        // Bottom Sheet İçeriği: Üstten 42.dp boşluk bırakılır
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                // Bottom Sheet dışındaki 42.dp'lik boşluğu bırakmak için
+                .padding(top = 42.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Bottom Sheet Başlık/Navigasyon Çubuğu (Eski TopAppBar yerine)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Cancel Butonu
+                TextButton(onClick = { navController.popBackStack() }) {
+                    Text("Cancel", color = FigmaPrimaryBlue)
+                }
+
+                // Sayfa Başlığı
+                Text(
+                    text = "New Contact",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                // Done Butonu
+                val isFormValid = name.isNotBlank() && phoneNumber.isNotBlank()
+                TextButton(
+                    onClick = {
+                        val newContact = Contact(name, surname, phoneNumber, imageUri)
+                        viewModel.addContact(newContact)
+                        isSavingSuccessful = true // Başarı durumunu tetikle
+                    },
+                    enabled = isFormValid
+                ) {
+                    Text("Done", color = FigmaPrimaryBlue)
+                }
+            }
+
+            // Form Alanları (Kaydırılabilir içerik)
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -107,79 +171,54 @@ fun AddContactScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // ... (Giriş Alanları) ...
+                // FOTOĞRAF ALANI
                 ContactImage(
                     imageUri = imageUri,
                     shadowColor = shadowColor,
                     modifier = Modifier
-                        .size(100.dp)
+                        .size(120.dp)
                         .clickable {
                             imagePickerLauncher.launch("image/*")
                         }
                 )
                 Spacer(Modifier.height(16.dp))
 
+                // FOTOĞRAF BUTONLARI
+                TextButton(
+                    onClick = { imagePickerLauncher.launch("image/*") },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = FigmaPrimaryBlue
+                    )
+                ) {
+                    Text(if (imageUri == null) "Add Photo" else "Change Photo")
+                }
+
+                if (imageUri != null) {
+                    TextButton(onClick = { imageUri = null }) {
+                        Text("Remove Photo", color = MaterialTheme.colorScheme.error)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                // GİRİŞ ALANLARI
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Name (optional)") },
+                    label = { Text("First Name") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value = surname,
                     onValueChange = { surname = it },
-                    label = { Text("Surname (optional)") },
+                    label = { Text("Last Name") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value = phone,
-                    onValueChange = { phone = it },
-                    label = { Text("Phone (required)") },
+                    value = phoneNumber,
+                    onValueChange = { phoneNumber = it },
+                    label = { Text("Phone Number") },
                     modifier = Modifier.fillMaxWidth()
                 )
-
-                Spacer(Modifier.height(8.dp))
-                Spacer(Modifier.height(48.dp))
-            }
-
-            // YENİ: Lottie Animasyonu ve Mesajı Birleştirme
-            if (showSuccessAnimation && composition != null) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.White.copy(alpha = 0.8f))
-                        .zIndex(1f),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    LottieAnimation(
-                        composition,
-                        progress = { progress },
-                        modifier = Modifier.size(200.dp)
-                    )
-                    // İSTEK 4: Lottie'nin hemen altında mesajı göster.
-                    if (successMessage != null) {
-                        // successMessage'ı SuccessMessagePopup ile değil, basit Text ile stilize ederek göster.
-                        // Daha sonra SuccessMessagePopup da ekranda alt kısımda gösterilecektir.
-                        Text(
-                            text = successMessage!!,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
-                }
-            }
-
-            // Başarı Mesajı (Yalnızca animasyon gösterilmiyorsa alt kısımda göster)
-            // Lottie gösterilirken mesaj ortada gösterildiği için burada koşul ekledik.
-            if (!showSuccessAnimation) {
-                successMessage?.let { message ->
-                    SuccessMessagePopup(
-                        message = message,
-                        modifier = Modifier.align(Alignment.BottomCenter)
-                    )
-                }
             }
         }
     }

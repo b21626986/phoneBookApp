@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.material3.ExperimentalMaterial3Api // Bottom Sheet için gerekli olabilir
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -14,6 +15,9 @@ import com.example.phonebookapp.ui.screens.ContactsScreen
 import com.example.phonebookapp.ui.screens.ProfileScreen
 import com.example.phonebookapp.viewmodel.ContactViewModel
 
+// Bottom Sheet/Dialog olarak açılacak rotalar için 'composable' yerine 'dialog' kullanıyoruz
+import androidx.navigation.compose.dialog as bottomSheet
+
 class MainActivity : ComponentActivity() {
     private val viewModel: ContactViewModel by viewModels()
 
@@ -21,37 +25,42 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            // Navigation controller'ı burada oluşturuyoruz
             val navController = rememberNavController()
-
-            // PhoneBookApp'e gerekli parametreleri geçiyoruz
             PhoneBookApp(viewModel = viewModel, navController = navController)
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class) // BottomSheet yapısı için eklenmeli
 @Composable
 fun PhoneBookApp(viewModel: ContactViewModel, navController: NavHostController) {
     NavHost(
         navController = navController,
         startDestination = "contacts"
     ) {
+        // 1. Ana Ekran - Normal Composable
         composable("contacts") {
             ContactsScreen(viewModel = viewModel, navController = navController)
         }
+
+        // 2. AddContactScreen - Artık normal Composable rotası
         composable("add") {
+            // Buraya yeni özel dialog bileşenimizi ekleyeceğiz!
+            // Ancak, AddContactScreen'i de buna uygun düzenlememiz gerekiyor.
+            // Bu rotada şimdilik ekranı direkt çağırıyoruz, ana özelleştirme ekranda yapılacak.
             AddContactScreen(viewModel = viewModel, navController = navController)
         }
-        // Sorgu parametresi (mode) eklendi
+
+        // 3. ProfileScreen - Artık normal Composable rotası
         composable("profile/{phone}?mode={mode}") { backStackEntry ->
+            // Aynı şekilde, ProfileScreen'i de buna uygun düzenlememiz gerekiyor.
             val phone = backStackEntry.arguments?.getString("phone") ?: ""
-            // Mode parametresini al (varsayılan: edit)
-            val mode = backStackEntry.arguments?.getString("mode") ?: "edit"
+            val mode = backStackEntry.arguments?.getString("mode") ?: "view"
             ProfileScreen(
                 phone = phone,
                 viewModel = viewModel,
                 navController = navController,
-                mode = mode // ProfileScreen'e mode'u iletiyoruz
+                mode = mode
             )
         }
     }
