@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,9 +14,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import androidx.navigation.NavHostController
 import com.airbnb.lottie.compose.*
 import com.example.phonebookapp.R
@@ -55,6 +56,7 @@ fun AddContactScreen(
     LaunchedEffect(isSavingSuccessful) {
         if (isSavingSuccessful) {
             delay(3000)
+            // Kontak başarıyla eklendiğinde Contacs ekranına geri dönülür
             navController.navigate("contacts") {
                 popUpTo("contacts") { inclusive = true }
             }
@@ -150,11 +152,19 @@ fun AddContactScreen(
                 )
 
                 // Done Butonu
-                // GÜNCELLENDİ: name VEYA surname VEYA phoneNumber dolu olmalı
                 val isFormValid = name.isNotBlank() || phoneNumber.isNotBlank() || surname.isNotBlank()
                 TextButton(
                     onClick = {
-                        val newContact = Contact(name, surname, phoneNumber, imageUri)
+                        // Contact modelinizin id alanını da içermesi için Long(0) varsayımı eklendi
+                        // Not: Eğer Contact modelinizde id alanı yoksa bu satır hata verecektir.
+                        // Eğer id alanı yoksa Contact(name, surname, phoneNumber, imageUri) olarak kalmalıdır.
+                        val newContact = Contact(
+                            id = 0L, // Varsayılan ID
+                            name = name,
+                            surname = surname,
+                            phone = phoneNumber,
+                            imageUri = imageUri
+                        )
                         viewModel.addContact(newContact)
                         isSavingSuccessful = true // Başarı durumunu tetikle
                     },
@@ -174,7 +184,8 @@ fun AddContactScreen(
             ) {
                 // FOTOĞRAF ALANI
                 ContactImage(
-                    imageUri = imageUri,
+                    // *** HATA DÜZELTME: imageUri'nin String? olduğu için orEmpty() ile String'e çevrilmesi ***
+                    imageUri = imageUri.orEmpty(),
                     shadowColor = shadowColor,
                     modifier = Modifier
                         .size(120.dp)
@@ -218,6 +229,7 @@ fun AddContactScreen(
                     value = phoneNumber,
                     onValueChange = { phoneNumber = it },
                     label = { Text("Phone Number") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), // Telefon klavyesi eklendi
                     modifier = Modifier.fillMaxWidth()
                 )
             }

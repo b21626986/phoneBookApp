@@ -30,11 +30,11 @@ class ContactViewModel : ViewModel() {
         fetchContactsFromApi()
     }
 
-    // YENİ: Silme Onayı Pop-up'ı Yönetimi
+    // Silme Onayı Pop-up'ı Yönetimi
     private val _showDeleteConfirmation = MutableStateFlow(false)
     val showDeleteConfirmation: StateFlow<Boolean> = _showDeleteConfirmation
 
-    // YENİ: Silinecek Kişi
+    // Silinecek Kişi
     private val _contactToDelete = MutableStateFlow<Contact?>(null)
     val contactToDelete: StateFlow<Contact?> = _contactToDelete
 
@@ -154,8 +154,8 @@ class ContactViewModel : ViewModel() {
     private val _showSuccessAnimation = MutableStateFlow(false)
     val showSuccessAnimation: StateFlow<Boolean> = _showSuccessAnimation
 
-    // YENİ: Başarı mesajı için state
-    val _successMessage = MutableStateFlow<String?>(null)
+    // Başarı mesajı için state
+    private val _successMessage = MutableStateFlow<String?>(null)
     val successMessage: StateFlow<String?> = _successMessage
 
 
@@ -163,9 +163,14 @@ class ContactViewModel : ViewModel() {
         _showSuccessAnimation.value = false
     }
 
-    // YENİ: Başarı mesajını sıfırlama
+    // Başarı mesajını sıfırlama
     fun clearSuccessMessage() {
         _successMessage.value = null
+    }
+
+    // YENİ: Başarı mesajını ayarlama (UI'dan erişim için)
+    fun setSuccessMessage(message: String) {
+        _successMessage.value = message
     }
 
     fun checkDeviceContactStatus(context: Context, phoneNumber: String): Boolean {
@@ -185,7 +190,8 @@ class ContactViewModel : ViewModel() {
                     }
                     fetchContactsFromApi()
                     _showSuccessAnimation.value = true
-                    _successMessage.value = "All Done! New contact saved!"
+                    // setSuccessMessage kullanıldı
+                    setSuccessMessage("All Done! New contact saved!")
                 } else {
                     println("API Ekleme Başarısız: ${response.code()}")
                 }
@@ -220,7 +226,8 @@ class ContactViewModel : ViewModel() {
                 }
                 fetchContactsFromApi()
                 _showSuccessAnimation.value = true
-                _successMessage.value = "User is updated!"
+                // setSuccessMessage kullanıldı
+                setSuccessMessage("User is updated!")
                 // } else {
                 //     println("API Güncelleme Başarısız: ${response.code()}")
                 // }
@@ -246,7 +253,8 @@ class ContactViewModel : ViewModel() {
                     currentList.filter { it.phone != contact.phone }
                 }
                 _showSuccessAnimation.value = true
-                _successMessage.value = "User is deleted!"
+                // setSuccessMessage kullanıldı
+                setSuccessMessage("User is deleted!")
                 // } else {
                 //     println("API Silme Başarısız: ${response.code()}")
                 // }

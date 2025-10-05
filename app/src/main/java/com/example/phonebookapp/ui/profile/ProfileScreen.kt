@@ -70,7 +70,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    phone: String,
+    contactId: Long, // <<< PARAMETRE DEĞİŞTİ: phone yerine ID geldi
     viewModel: ContactViewModel,
     navController: NavHostController,
     mode: String = "view"
@@ -79,13 +79,14 @@ fun ProfileScreen(
     val contacts by viewModel.contacts.collectAsState()
     val contactToDelete by viewModel.contactToDelete.collectAsState()
     val showDeleteConfirmation by viewModel.showDeleteConfirmation.collectAsState()
-    val successMessage by viewModel.successMessage.collectAsState() // Düzeltilmiş state kullanımı
+    val successMessage by viewModel.successMessage.collectAsState()
     val context = LocalContext.current
     var isEditMode by remember { mutableStateOf(mode == "edit") }
     var showMenu by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
 
-    val initialContact = remember(phone) { contacts.find { it.phone == phone } }
+    // ID'YE GÖRE KONTAĞI BULMA
+    val initialContact = remember(contactId) { contacts.find { it.id == contactId } } // <<< ID KULLANILDI
 
     if (initialContact == null) {
         // Eğer kontak bulunamazsa, direkt geri dönülür (dialog kapanır)
@@ -93,7 +94,6 @@ fun ProfileScreen(
         return
     }
 
-    // ... (LaunchedEffect'ler ve diğer değişken tanımları aynı kalır) ...
     LaunchedEffect(successMessage) {
         if (successMessage != null) {
             kotlinx.coroutines.delay(3000)
@@ -105,6 +105,7 @@ fun ProfileScreen(
         isEditMode = mode == "edit"
     }
 
+    // STATE'LER initialContact'tan doldurulur
     var name by remember { mutableStateOf(initialContact.name) }
     var surname by remember { mutableStateOf(initialContact.surname) }
     var phoneNumber by remember { mutableStateOf(initialContact.phone) }
@@ -123,8 +124,6 @@ fun ProfileScreen(
             imageUri = uri.toString()
         }
     }
-    // TÜM MEVCUT STATE VE INITIALIZATION KODLARI BURADA AYNI KALIR
-
 
     //-------------------------------------------------------------
     // TÜM EKRAN İÇERİĞİ, ÖZELLEŞTİRİLMİŞ DİYALOG İÇİNDE
@@ -132,21 +131,18 @@ fun ProfileScreen(
     FullWidthBottomSheetDialog(
         onDismissRequest = { navController.popBackStack() } // Dışarı tıklayınca kapatma
     ) {
-        // ThemedScreen, artık Dialog'un içindeki Box'ın içeriğidir.
         ThemedScreen(primaryColor = FigmaSuccessGreen) {
 
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        // Artık üstten 42.dp boşluğa gerek yok, çünkü Dialog kendisi
-                        // üstten gölgeli boşluğu sağlıyor.
                         .background(Color.White)
                         .padding(top = 0.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
 
-                    // Bottom Sheet Başlık/Navigasyon Çubuğu (ESKİ KODUNUZUN AYNISI)
+                    // Bottom Sheet Başlık/Navigasyon Çubuğu
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -176,8 +172,17 @@ fun ProfileScreen(
                             val hasChanges = (name != initialContact.name || surname != initialContact.surname || phoneNumber != initialContact.phone || imageUri != initialContact.imageUri)
                             TextButton(
                                 onClick = {
-                                    val updatedContact = Contact(name, surname, phoneNumber, imageUri)
+                                    val updatedContact = Contact(
+                                        id = initialContact.id, // ID korundu
+                                        name = name,
+                                        surname = surname,
+                                        phone = phoneNumber,
+                                        imageUri = imageUri
+                                    )
+                                    // Güncelleme işlemi artık ID'yi kullanacak şekilde güncellenmeli (şimdilik eski phone parametresi tutuldu, ViewModel'e geçiş için)
                                     viewModel.updateContactWithOldPhone(oldPhone = initialContact.phone, updatedContact = updatedContact)
+
+                                    // Kaydettikten sonra listeye geri dönülür
                                     navController.navigate("contacts") { popUpTo("contacts") { inclusive = true } }
                                 },
                                 enabled = hasChanges && phoneNumber.isNotBlank()
@@ -190,14 +195,29 @@ fun ProfileScreen(
                                     Icon(imageVector = Icons.Default.MoreVert, contentDescription = "Menu")
                                 }
                                 DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }, modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
-                                    DropdownMenuItem(text = { Text("Edit") }, onClick = { showMenu = false; isEditMode = true }, trailingIcon = { Icon(painter = painterResource(id = R.drawable.ic_edit), contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurface) })
-                                    DropdownMenuItem(text = { Text("Delete", color = MaterialTheme.colorScheme.error) }, onClick = { showMenu = false; viewModel.startDelete(initialContact) }, trailingIcon = { Icon(painter = painterResource(id = R.drawable.ic_delete), contentDescription = "Delete", tint = MaterialTheme.colorScheme.error) })
+                                    DropdownMenuItem(
+                                        text = { Text("Edit") },
+                                        onClick = {
+                                            showMenu = false
+                                            // >>> ID İLE NAVİGASYON DÜZELTİLDİ
+                                            navController.navigate("profile/${initialContact.id}?mode=edit")
+                                        },
+                                        trailingIcon = { Icon(painter = painterResource(id = R.drawable.ic_edit), contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurface) }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                                        onClick = {
+                                            showMenu = false
+                                            viewModel.startDelete(initialContact)
+                                        },
+                                        trailingIcon = { Icon(painter = painterResource(id = R.drawable.ic_delete), contentDescription = "Delete", tint = MaterialTheme.colorScheme.error) }
+                                    )
                                 }
                             }
                         }
                     }
 
-                    // Form İçeriği (Kaydırılabilir - ESKİ KODUNUZUN AYNISI)
+                    // Form İçeriği (Kaydırılabilir)
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -206,9 +226,9 @@ fun ProfileScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // ... Geri kalan tüm form elemanları ve butonlar aynı kalır ...
+                        // FOTOĞRAF ALANI (orEmpty() düzeltmesi korundu)
                         ContactImage(
-                            imageUri = imageUri,
+                            imageUri = imageUri.orEmpty(),
                             shadowColor = shadowColor,
                             modifier = Modifier
                                 .size(120.dp)
@@ -216,26 +236,52 @@ fun ProfileScreen(
                         )
                         Spacer(Modifier.height(16.dp))
 
-                        TextButton(onClick = { if (isEditMode) imagePickerLauncher.launch("image/*") }, colors = ButtonDefaults.textButtonColors(contentColor = FigmaPrimaryBlue)) { Text(if (imageUri == null) "Add Photo" else "Change Photo") }
+                        // FOTOĞRAF BUTONLARI
+                        TextButton(
+                            onClick = { if (isEditMode) imagePickerLauncher.launch("image/*") },
+                            colors = ButtonDefaults.textButtonColors(contentColor = FigmaPrimaryBlue)
+                        ) {
+                            Text(if (imageUri == null) "Add Photo" else "Change Photo")
+                        }
+
                         if (isEditMode && imageUri != null) {
-                            TextButton(onClick = { imageUri = null }) { Text("Remove Photo", color = MaterialTheme.colorScheme.error) }
+                            TextButton(onClick = { imageUri = null }) {
+                                Text("Remove Photo", color = MaterialTheme.colorScheme.error)
+                            }
                             Spacer(Modifier.height(8.dp))
                         }
 
+                        // GİRİŞ ALANLARI
                         OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, readOnly = !isEditMode, modifier = Modifier.fillMaxWidth())
                         OutlinedTextField(value = surname, onValueChange = { surname = it }, label = { Text("Surname") }, readOnly = !isEditMode, modifier = Modifier.fillMaxWidth())
                         OutlinedTextField(value = phoneNumber, onValueChange = { phoneNumber = it }, label = { Text("Phone") }, readOnly = !isEditMode, modifier = Modifier.fillMaxWidth())
 
                         Spacer(Modifier.height(8.dp))
 
+                        // Cihaza Kaydet Butonu
                         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            OutlinedButton(onClick = { saveContactToDevice(context, initialContact); isContactSavedToDevice = true; viewModel._successMessage.value = "User is added to your phone!" }, enabled = !isContactSavedToDevice, colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.surface, contentColor = FigmaGray_950), border = BorderStroke(1.dp, FigmaGray_950), modifier = Modifier.padding(vertical = 4.dp)) {
+                            OutlinedButton(
+                                onClick = {
+                                    saveContactToDevice(context, initialContact)
+                                    isContactSavedToDevice = true
+                                    viewModel.setSuccessMessage("User is added to your phone!")
+                                },
+                                enabled = !isContactSavedToDevice && !isEditMode,
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.surface,
+                                    contentColor = FigmaGray_950,
+                                    disabledContentColor = FigmaGray_300
+                                ),
+                                border = BorderStroke(1.dp, if (isContactSavedToDevice || isEditMode) FigmaGray_300 else FigmaGray_950),
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            ) {
                                 Icon(painter = painterResource(id = R.drawable.ic_save), contentDescription = "Save to phone", modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Text("Save to My Phone Contact", style = MaterialTheme.typography.bodyLarge)
                             }
                         }
 
+                        // Cihaza kayıtlı bilgi mesajı
                         if (isContactSavedToDevice) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(imageVector = Icons.Default.Info, contentDescription = "Info", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
@@ -248,7 +294,7 @@ fun ProfileScreen(
                     }
                 }
 
-                // ÖZEL SİLME ONAY DİYALOĞU (ESKİ KODUNUZUN AYNISI)
+                // ÖZEL SİLME ONAY DİYALOĞU
                 if (showDeleteConfirmation && contactToDelete != null) {
                     Box(
                         modifier = Modifier
@@ -273,13 +319,14 @@ fun ProfileScreen(
                             Spacer(Modifier.height(24.dp))
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 OutlinedButton(onClick = { viewModel.cancelDelete() }, modifier = Modifier.weight(1f).padding(end = 8.dp), border = BorderStroke(1.dp, FigmaGray_950), colors = ButtonDefaults.outlinedButtonColors(contentColor = FigmaGray_950)) { Text("No") }
+                                // Silme başarılı olduğunda listeye geri dönülür
                                 Button(onClick = { viewModel.deleteContactConfirmed(contactToDelete!!); navController.navigate("contacts") { popUpTo("contacts") { inclusive = true } } }, modifier = Modifier.weight(1f).padding(start = 8.dp), colors = ButtonDefaults.buttonColors(containerColor = FigmaGray_950, contentColor = Color.White)) { Text("Yes") }
                             }
                         }
                     }
                 }
 
-                // Başarı Mesajı (Altta Sabit - ESKİ KODUNUZUN AYNISI)
+                // Başarı Mesajı (Altta Sabit)
                 successMessage?.let { message ->
                     SuccessMessagePopup(
                         message = message,

@@ -54,10 +54,6 @@ fun ContactsScreen(
     val searchText by viewModel.searchText.collectAsState()
     val searchHistory by viewModel.searchHistory.collectAsState()
 
-    // Success state'leri kaldırılıyor, çünkü ContactsScreen'de gösterilmeyecekler.
-    // val showSuccessAnimation by viewModel.showSuccessAnimation.collectAsState() // KALDIRILDI
-    // val successMessage by viewModel.successMessage.collectAsState() // KALDIRILDI
-
     val contactToDelete by viewModel.contactToDelete.collectAsState()
     val showDeleteConfirmation by viewModel.showDeleteConfirmation.collectAsState()
 
@@ -67,31 +63,6 @@ fun ContactsScreen(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     var isSearchFocused by remember { mutableStateOf(false) }
-
-    // Lottie animasyon ve durum resetleme blokları KALDIRILDI.
-    /*
-    val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.done))
-    val progress by animateLottieCompositionAsState(
-        composition,
-        isPlaying = showSuccessAnimation,
-        iterations = 1,
-        restartOnPlay = true
-    )
-
-    LaunchedEffect(progress) {
-        if (progress >= 1f && showSuccessAnimation) {
-            viewModel.resetSuccessAnimation()
-        }
-    }
-
-    LaunchedEffect(successMessage) {
-        if (successMessage != null) {
-            kotlinx.coroutines.delay(3000)
-            viewModel.clearSuccessMessage()
-        }
-    }
-    */
-
 
     Scaffold(
         containerColor = FigmaGray_50,
@@ -126,7 +97,7 @@ fun ContactsScreen(
                         }
                     }
                 )
-                // SEARCH BAR
+                // SEARCH BAR (Tasarımınız bozulmadan kalmıştır)
                 OutlinedTextField(
                     value = searchText,
                     onValueChange = { viewModel.onSearchTextChanged(it) },
@@ -182,13 +153,12 @@ fun ContactsScreen(
 
                 val totalContactsInGroups = groupedContacts.values.sumOf { it.size }
 
-                // GÖSTERİM MANTIĞI: Arama odaklı DEĞİLSE VEYA ARAMA KUTUSU DOLU İSE listeyi göster.
                 val showContactList = !isSearchFocused || searchText.isNotEmpty()
 
                 if (showContactList) {
 
                     if (totalContactsInGroups == 0 && searchText.isNotEmpty()) {
-                        // ARAMA SONUCU BULUNAMADI GÖRÜNÜMÜ
+                        // ARAMA SONUCU BULUNAMADI GÖRÜNÜMÜ (Tasarımınız bozulmadan kalmıştır)
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -201,7 +171,7 @@ fun ContactsScreen(
                                 painter = painterResource(id = R.drawable.ic_no_contact_found),
                                 contentDescription = "No results icon",
                                 modifier = Modifier.size(64.dp),
-                                tint = FigmaPrimaryBlue // FigmaPrimaryBlue rengi kullanıldı
+                                tint = FigmaPrimaryBlue
                             )
                             Spacer(Modifier.height(16.dp))
                             Text(
@@ -219,7 +189,7 @@ fun ContactsScreen(
                             )
                         }
                     } else if (totalContactsInGroups == 0 && searchText.isEmpty()) {
-                        // BOŞ LİSTE GÖRÜNÜMÜ (Ekran ortalanır)
+                        // BOŞ LİSTE GÖRÜNÜMÜ (Tasarımınız bozulmadan kalmıştır)
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -307,7 +277,8 @@ fun ContactsScreen(
                                                             modifier = Modifier
                                                                 .fillMaxWidth()
                                                                 .background(MaterialTheme.colorScheme.surface)
-                                                                .clickable { navController.navigate("profile/${contact.phone}?mode=view") }
+                                                                // NAVİGASYON DÜZELTİLDİ: contact.phone -> contact.id
+                                                                .clickable { navController.navigate("profile/${contact.id}?mode=view") }
                                                                 .padding(16.dp),
                                                             horizontalArrangement = Arrangement.SpaceBetween,
                                                             verticalAlignment = Alignment.CenterVertically
@@ -338,7 +309,8 @@ fun ContactsScreen(
                                                         }
                                                     },
                                                     onEditClick = {
-                                                        navController.navigate("profile/${contact.phone}?mode=edit")
+                                                        // NAVİGASYON DÜZELTİLDİ: contact.phone -> contact.id
+                                                        navController.navigate("profile/${contact.id}?mode=edit")
                                                     },
                                                     onDeleteClick = {
                                                         viewModel.startDelete(contact)
@@ -360,7 +332,7 @@ fun ContactsScreen(
                 }
 
 
-                // ARAMA GEÇMİŞİ ALANI
+                // ARAMA GEÇMİŞİ ALANI (Tasarımınız bozulmadan kalmıştır)
                 if (isSearchFocused && searchText.isEmpty() && searchHistory.isNotEmpty()) {
                     Surface(
                         modifier = Modifier
@@ -438,7 +410,7 @@ fun ContactsScreen(
                     }
                 }
 
-                // ÖZEL SİLME ONAY DİYALOĞU
+                // ÖZEL SİLME ONAY DİYALOĞU (Tasarımınız bozulmadan kalmıştır)
                 if (showDeleteConfirmation && contactToDelete != null) {
                     Box(
                         modifier = Modifier
