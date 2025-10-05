@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -100,21 +101,19 @@ fun ContactImage(imageUri: String?, modifier: Modifier = Modifier, shadowColor: 
     Surface(
         shape = CircleShape,
         modifier = modifier.shadow(
-            elevation = 8.dp, // Gölge derinliği
+            elevation = 16.dp, // Gölge derinliği
             shape = CircleShape,
             ambientColor = shadowColor, // Baskın renge göre gölge
             spotColor = shadowColor
         )
     ) {
         if (imageUri.isNullOrBlank()) {
-            Icon(
-                painter = painterResource(id = R.drawable.no_contacts),
+            Image(
+                painter = painterResource(id = R.drawable.ic_contact_photo),
                 contentDescription = "No Photo",
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.primaryContainer)
-                    .padding(16.dp),
-                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    .padding(16.dp)
             )
         } else {
             // Coil ile URI'den görsel yükleme

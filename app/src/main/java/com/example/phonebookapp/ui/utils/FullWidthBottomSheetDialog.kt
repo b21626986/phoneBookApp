@@ -51,12 +51,11 @@ fun FullWidthBottomSheetDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     // Altı tamamen kaplar
-                    .height(600.dp) // Yüksekliği ekranın büyük bir kısmı olarak ayarlıyoruz
+                    .height(800.dp) // Yüksekliği ekranın büyük bir kısmı olarak ayarlıyoruz
                     .background(
                         color = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+                        shape = RoundedCornerShape(topStart = 128.dp, topEnd = 128.dp)
                     )
-                    .clickable(enabled = false) { /* İçeriğin tıklanmasını engeller */ }
             ) {
                 // İçerik, dialog'u kapatma işlevini üstten almalıdır.
                 content()

@@ -101,7 +101,7 @@ class ContactViewModel : ViewModel() {
             }
 
             baseList.groupBy { contact ->
-                val firstChar = contact.name.trim().firstOrNull()
+                val firstChar =  if(!(contact.name.trim().isNullOrEmpty())) contact.name.trim().firstOrNull() else contact.surname.trim().firstOrNull()
                 if (firstChar != null && firstChar.isLetter()) firstChar.uppercaseChar() else '#'
             }
         }.stateIn(

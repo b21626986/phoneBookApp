@@ -150,7 +150,7 @@ fun AddContactScreen(
                 )
 
                 // Done Butonu
-                val isFormValid = name.isNotBlank() && phoneNumber.isNotBlank()
+                val isFormValid = phoneNumber.isNotBlank()
                 TextButton(
                     onClick = {
                         val newContact = Contact(name, surname, phoneNumber, imageUri)
