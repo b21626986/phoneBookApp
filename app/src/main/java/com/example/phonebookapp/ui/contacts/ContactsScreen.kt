@@ -1,5 +1,6 @@
 package com.example.phonebookapp.ui.screens
 
+import android.R.attr.tint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,6 +14,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SentimentDissatisfied
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,6 +49,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import com.example.phonebookapp.ui.theme.FigmaGray_200
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
@@ -58,8 +62,10 @@ fun ContactsScreen(
     val searchText by viewModel.searchText.collectAsState()
     val searchHistory by viewModel.searchHistory.collectAsState()
     val showSuccessAnimation by viewModel.showSuccessAnimation.collectAsState()
+
     val contactToDelete by viewModel.contactToDelete.collectAsState()
     val showDeleteConfirmation by viewModel.showDeleteConfirmation.collectAsState()
+
     val successMessage by viewModel.successMessage.collectAsState()
     val context = LocalContext.current
 
@@ -129,9 +135,17 @@ fun ContactsScreen(
                     label = { Text("Search by name") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
                     trailingIcon = {
-                        if (searchText.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.onSearchTextChanged("") }) {
-                                Icon(Icons.Default.Close, contentDescription = "Clear Search")
+                        if (searchText.isNotEmpty() || isSearchFocused) { // Odaklanmışsa VEYA metin varsa göster
+                            IconButton(onClick = {
+                                if (searchText.isNotEmpty()) {
+                                    viewModel.onSearchTextChanged("") // Metni temizle
+                                } else if (isSearchFocused) {
+                                    // Metin boşken ve odaklanılmışken: Odağı kaldır (arama modundan çık)
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                }
+                            }) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear Search or Exit Search Mode")
                             }
                         }
                     },
@@ -171,144 +185,174 @@ fun ContactsScreen(
 
                 val totalContactsInGroups = groupedContacts.values.sumOf { it.size }
 
-                if (totalContactsInGroups == 0) {
-                    // BOŞ LİSTE GÖRÜNÜMÜ
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.no_contacts),
-                            contentDescription = "No Contacts Icon",
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Text(
-                            text = "No Contacts",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = "Contacts you've added will appear here.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(Modifier.height(24.dp))
-                        TextButton(onClick = { navController.navigate("add") }) {
+                // GÖSTERİM MANTIĞI: Arama odaklı DEĞİLSE VEYA ARAMA KUTUSU DOLU İSE listeyi göster.
+                val showContactList = !isSearchFocused || searchText.isNotEmpty()
+
+                if (showContactList) {
+
+                    if (totalContactsInGroups == 0 && searchText.isNotEmpty()) {
+                        // BURASI GÜNCELLENDİ: Arama çubuğuna yakın olması için sadece bu Column kullanılır.
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 64.dp, start = 32.dp, end = 32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Top
+                        ) {
+                            Image(
+                                // İstenen Resource kullanıldı.
+                                painter = painterResource(id = R.drawable.ic_no_contact_found),
+                                contentDescription = "No results icon",
+                                modifier = Modifier.size(64.dp)
+                            )
+                            Spacer(Modifier.height(16.dp))
                             Text(
-                                text = "Create New Contact",
-                                color = FigmaPrimaryBlue,
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                                // İstenen büyük 'R' ile yazıldı.
+                                text = "No Results",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = "The user you are looking for could not be found.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
                             )
                         }
-                    }
-                } else {
-                    // YENİ KART GRUPLAMA YAPISI
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        groupedContacts.keys.sorted().forEach { initial ->
-                            item(key = "group_${initial}") {
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                    elevation = CardDefaults.cardElevation(2.dp)
-                                ) {
-                                    Column {
-                                        // 1. Grup Başlığı
-                                        Text(
-                                            text = initial.toString(),
-                                            style = MaterialTheme.typography.titleLarge,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                                        )
+                    } else if (totalContactsInGroups == 0 && searchText.isEmpty()) {
+                        // BOŞ LİSTE GÖRÜNÜMÜ (Ekran ortalanır)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.no_contacts),
+                                contentDescription = "No Contacts Icon",
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                text = "No Contacts",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = "Contacts you've added will appear here.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(Modifier.height(24.dp))
+                            TextButton(onClick = { navController.navigate("add") }) {
+                                Text(
+                                    text = "Create New Contact",
+                                    color = FigmaPrimaryBlue,
+                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                            }
+                        }
+                    } else {
+                        // KİŞİ LİSTESİ VE GRUPLAMA YAPISI
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            groupedContacts.keys.sorted().forEach { initial ->
+                                item(key = "group_${initial}") {
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                        elevation = CardDefaults.cardElevation(2.dp)
+                                    ) {
+                                        Column {
+                                            Text(
+                                                text = initial.toString(),
+                                                style = MaterialTheme.typography.titleLarge,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                                            )
+                                            Divider(modifier = Modifier.padding(start = 8.dp))
+                                            groupedContacts[initial]?.forEachIndexed { index, contact ->
+                                                var isDeviceContact by remember(contact.phone) { mutableStateOf(false) }
 
-                                        // Başlık ve ilk kişi arasına ayırıcı
-                                        Divider(modifier = Modifier.padding(start = 8.dp))
-
-                                        // 2. Kişiler Listesi
-                                        groupedContacts[initial]?.forEachIndexed { index, contact ->
-                                            var isDeviceContact by remember(contact.phone) { mutableStateOf(false) }
-
-                                            LaunchedEffect(contact.phone) {
-                                                try {
-                                                    val result = withContext(Dispatchers.IO) {
-                                                        viewModel.checkDeviceContactStatus(context, contact.phone)
+                                                LaunchedEffect(contact.phone) {
+                                                    try {
+                                                        val result = withContext(Dispatchers.IO) {
+                                                            viewModel.checkDeviceContactStatus(context, contact.phone)
+                                                        }
+                                                        isDeviceContact = result
+                                                    } catch (_: Exception) {
+                                                        isDeviceContact = false
                                                     }
-                                                    isDeviceContact = result
-                                                } catch (_: Exception) {
-                                                    isDeviceContact = false
                                                 }
-                                            }
 
-                                            SwipeRow(
-                                                itemContent = { isSwiped ->
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .background(MaterialTheme.colorScheme.surface)
-                                                            .clickable { navController.navigate("profile/${contact.phone}?mode=view") }
-                                                            .padding(16.dp),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        ContactImage(
-                                                            imageUri = contact.imageUri,
-                                                            modifier = Modifier.size(40.dp)
-                                                        )
-                                                        Spacer(Modifier.width(16.dp))
-
-                                                        Column(modifier = Modifier.weight(1f)) {
-                                                            val displayName = (contact.name + " " + contact.surname).trim()
-                                                            Text(
-                                                                if (displayName.isNotEmpty()) displayName else contact.phone,
-                                                                style = MaterialTheme.typography.titleMedium
+                                                SwipeRow(
+                                                    itemContent = { isSwiped ->
+                                                        Row(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .background(MaterialTheme.colorScheme.surface)
+                                                                .clickable { navController.navigate("profile/${contact.phone}?mode=view") }
+                                                                .padding(16.dp),
+                                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                                            verticalAlignment = Alignment.CenterVertically
+                                                        ) {
+                                                            ContactImage(
+                                                                imageUri = contact.imageUri,
+                                                                modifier = Modifier.size(40.dp)
                                                             )
-                                                            if (displayName.isNotEmpty()) {
-                                                                Text(contact.phone, color = MaterialTheme.colorScheme.primary)
+                                                            Spacer(Modifier.width(16.dp))
+                                                            Column(modifier = Modifier.weight(1f)) {
+                                                                val displayName = (contact.name + " " + contact.surname).trim()
+                                                                Text(
+                                                                    if (displayName.isNotEmpty()) displayName else contact.phone,
+                                                                    style = MaterialTheme.typography.titleMedium
+                                                                )
+                                                                if (displayName.isNotEmpty()) {
+                                                                    Text(contact.phone, color = MaterialTheme.colorScheme.primary)
+                                                                }
+                                                            }
+                                                            if (isDeviceContact && !isSwiped) {
+                                                                Spacer(Modifier.width(8.dp))
+                                                                Icon(
+                                                                    imageVector = Icons.Default.PhoneAndroid,
+                                                                    contentDescription = "Device Contact",
+                                                                    tint = MaterialTheme.colorScheme.tertiary
+                                                                )
                                                             }
                                                         }
-                                                        if (isDeviceContact && !isSwiped) {
-                                                            Spacer(Modifier.width(8.dp))
-                                                            Icon(
-                                                                imageVector = Icons.Default.PhoneAndroid,
-                                                                contentDescription = "Device Contact",
-                                                                tint = MaterialTheme.colorScheme.tertiary
-                                                            )
-                                                        }
+                                                    },
+                                                    onEditClick = {
+                                                        navController.navigate("profile/${contact.phone}?mode=edit")
+                                                    },
+                                                    onDeleteClick = {
+                                                        viewModel.startDelete(contact)
                                                     }
-                                                },
-                                                onEditClick = {
-                                                    navController.navigate("profile/${contact.phone}?mode=edit")
-                                                },
-                                                onDeleteClick = {
-                                                    viewModel.startDelete(contact)
-                                                }
-                                            )
+                                                )
 
-                                            // Son kişi değilse ayırıcı çizgi ekle
-                                            if (index < (groupedContacts[initial]?.size ?: 0) - 1) {
-                                                Divider(modifier = Modifier.padding(start = 16.dp),
-                                                    thickness = 0.5.dp,
-                                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                                                if (index < (groupedContacts[initial]?.size ?: 0) - 1) {
+                                                    Divider(modifier = Modifier.padding(start = 16.dp),
+                                                        thickness = 0.5.dp,
+                                                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                                                }
                                             }
                                         }
                                     }
@@ -318,45 +362,80 @@ fun ContactsScreen(
                     }
                 }
 
-                // Arama Geçmişi Alanı (Beyaz kalır)
+
+                // ARAMA GEÇMİŞİ ALANI
                 if (isSearchFocused && searchText.isEmpty() && searchHistory.isNotEmpty()) {
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 0.dp)
                             .zIndex(1f),
                         shadowElevation = 4.dp
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surface)
-                                .padding(horizontal = 16.dp)
+                                .background(FigmaWhite)
                         ) {
-                            searchHistory.forEach { term ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            viewModel.onSearchTextChanged(term)
-                                            viewModel.addSearchTermToHistory(term)
-                                            focusManager.clearFocus()
-                                            keyboardController?.hide()
-                                        }
-                                        .padding(vertical = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.History, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Spacer(Modifier.width(8.dp))
+                            // BAŞLIK VE CLEAR ALL ROW'U
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(FigmaGray_50)
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "SEARCH HISTORY",
+                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                TextButton(onClick = { viewModel.clearSearchHistory() }) {
                                     Text(
-                                        text = term,
-                                        modifier = Modifier.weight(1f)
+                                        text = "Clear All",
+                                        color = FigmaPrimaryBlue,
+                                        style = MaterialTheme.typography.labelLarge
                                     )
-                                    IconButton(onClick = { viewModel.removeSearchTermFromHistory(term) }) {
-                                        Icon(Icons.Default.Close, contentDescription = "Sil", tint = MaterialTheme.colorScheme.error)
-                                    }
                                 }
-                                Divider()
+                            }
+
+                            // ARAMA GEÇMİŞİ LİSTESİ
+                            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                                searchHistory.forEach { term ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                viewModel.onSearchTextChanged(term)
+                                                viewModel.addSearchTermToHistory(term)
+                                                focusManager.clearFocus()
+                                                keyboardController?.hide()
+                                            }
+                                            .padding(vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // ÇARPI İKONU SOLDA (Silme butonu)
+                                        IconButton(
+                                            onClick = { viewModel.removeSearchTermFromHistory(term) },
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = "Remove Search Term",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                            )
+                                        }
+
+                                        Spacer(Modifier.width(8.dp))
+
+                                        Text(
+                                            text = term,
+                                            modifier = Modifier.weight(1f),
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                    Divider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                                }
                             }
                         }
                     }
@@ -384,7 +463,6 @@ fun ContactsScreen(
                                 .clickable(enabled = false, onClick = { /* İçeride tıklamayı engelle */ }),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            // BAŞLIK: Delete Contact (Bold, Ortalanmış)
                             Text(
                                 text = "Delete Contact",
                                 style = MaterialTheme.typography.titleLarge.copy(
@@ -393,8 +471,6 @@ fun ContactsScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(Modifier.height(8.dp))
-
-                            // MESAJ (Ortalanmış)
                             Text(
                                 text = "Are you sure you want to delete this contact?",
                                 style = MaterialTheme.typography.bodyLarge,
@@ -402,12 +478,10 @@ fun ContactsScreen(
                             )
                             Spacer(Modifier.height(24.dp))
 
-                            // BUTONLAR
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                // SOL BUTON: NO (Outline + Text FigmaGray_950)
                                 OutlinedButton(
                                     onClick = { viewModel.cancelDelete() },
                                     modifier = Modifier.weight(1f).padding(end = 8.dp),
@@ -424,10 +498,8 @@ fun ContactsScreen(
                                     Text("No")
                                 }
 
-                                // SAĞ BUTON: YES (Full FigmaGray_950)
                                 Button(
                                     onClick = {
-                                        // Silme işlemi (ContactsScreen'deyiz, yönlendirmeye gerek yok)
                                         viewModel.deleteContactConfirmed(contactToDelete!!)
                                     },
                                     modifier = Modifier.weight(1f).padding(start = 8.dp),

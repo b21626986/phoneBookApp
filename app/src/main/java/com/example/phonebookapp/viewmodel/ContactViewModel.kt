@@ -131,6 +131,9 @@ class ContactViewModel : ViewModel() {
         }
     }
 
+    fun clearSearchHistory() {
+        _searchHistory.value = emptyList()
+    }
 
     // Lottie animasyonu ve Başarı Mesajları için state'ler
     private val _showSuccessAnimation = MutableStateFlow(false)
