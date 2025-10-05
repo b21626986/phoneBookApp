@@ -25,29 +25,26 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.palette.graphics.Palette
-import coil.compose.AsyncImage // Coil importu
+import coil.compose.AsyncImage
 import com.example.phonebookapp.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * Bir görsel URI'sinden baskın rengi hesaplar.
- */
+
 @Composable
 fun getDominantColor(imageUri: String?): State<Color> {
     val context = LocalContext.current
     val defaultColor = MaterialTheme.colorScheme.primary
     val dominantColor = remember { mutableStateOf(defaultColor) }
 
+    // Relaunch the effect whenever the imageUri changes.
     LaunchedEffect(imageUri) {
         if (!imageUri.isNullOrBlank()) {
             val uri = Uri.parse(imageUri)
             try {
-                // Bitmap'i asenkron olarak yükle ve Palette API'ı çalıştır
                 withContext(Dispatchers.IO) {
                     val bitmap: Bitmap = when {
-                        // android.resource://.../resId formatı için doğrudan resource'tan çöz
                         uri.scheme == "android.resource" -> {
                             val resId = uri.lastPathSegment?.toIntOrNull()
                             if (resId != null) {
@@ -58,7 +55,6 @@ fun getDominantColor(imageUri: String?): State<Color> {
                                     BitmapFactory.decodeResource(context.resources, resId)
                                 }
                             } else {
-                                // Tip/ad formatı için fallback: contentResolver ile dene
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                                     val source = ImageDecoder.createSource(context.contentResolver, uri)
                                     ImageDecoder.decodeBitmap(source)
@@ -74,6 +70,7 @@ fun getDominantColor(imageUri: String?): State<Color> {
                         else -> MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
                     }
 
+                    // Uses the Android Palette library to extract the dominant color
                     Palette.from(bitmap).generate { palette ->
                         palette?.dominantSwatch?.rgb?.let { colorValue ->
                             dominantColor.value = Color(colorValue)
@@ -92,22 +89,22 @@ fun getDominantColor(imageUri: String?): State<Color> {
     return dominantColor
 }
 
-
 /**
- * Kişi fotoğrafını gösteren ve gölge efektini uygulayan Composable.
- */
+ * Displays a contact photo, handling both image URIs and placeholder display.
+ * It applies a circular shadow colored by the provided shadowColor.*/
 @Composable
 fun ContactImage(imageUri: String?, modifier: Modifier = Modifier, shadowColor: Color = Color.Gray) {
     Surface(
         shape = CircleShape,
         modifier = modifier.shadow(
-            elevation = 16.dp, // Gölge derinliği
+            elevation = 16.dp,
             shape = CircleShape,
-            ambientColor = shadowColor, // Baskın renge göre gölge
+            ambientColor = shadowColor,
             spotColor = shadowColor
         )
     ) {
         if (imageUri.isNullOrBlank()) {
+            // Displays a default placeholder image if no URI is provided
             Image(
                 painter = painterResource(id = R.drawable.ic_contact_photo),
                 contentDescription = "No Photo",
@@ -116,12 +113,11 @@ fun ContactImage(imageUri: String?, modifier: Modifier = Modifier, shadowColor: 
                     .padding(16.dp)
             )
         } else {
-            // Coil ile URI'den görsel yükleme
+            // Uses Coil's AsyncImage to load the image from the URI efficiently
             AsyncImage(
                 model = Uri.parse(imageUri),
                 contentDescription = "Contact Photo",
                 modifier = Modifier.fillMaxSize(),
-                // Görselin daire şekline uyması için kırpma
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop
             )
         }

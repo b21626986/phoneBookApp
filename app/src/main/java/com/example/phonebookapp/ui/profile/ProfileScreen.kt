@@ -61,7 +61,7 @@ import com.example.phonebookapp.ui.theme.ThemedScreen
 import com.example.phonebookapp.ui.utils.ContactImage
 import com.example.phonebookapp.ui.utils.ContactUtils.isContactInDevice
 import com.example.phonebookapp.ui.utils.ContactUtils.saveContactToDevice
-import com.example.phonebookapp.ui.utils.FullWidthBottomSheetDialog // <-- Bottom Sheet Bileşeni
+import com.example.phonebookapp.ui.utils.FullWidthBottomSheetDialog
 import com.example.phonebookapp.ui.utils.SuccessMessagePopup
 import com.example.phonebookapp.ui.utils.getDominantColor
 import com.example.phonebookapp.viewmodel.ContactViewModel
@@ -75,11 +75,11 @@ fun ProfileScreen(
     navController: NavHostController,
     mode: String = "view"
 ) {
-    // TÜM MEVCUT STATE VE INITIALIZATION KODLARI BURADA AYNI KALIR
+
     val contacts by viewModel.contacts.collectAsState()
     val contactToDelete by viewModel.contactToDelete.collectAsState()
     val showDeleteConfirmation by viewModel.showDeleteConfirmation.collectAsState()
-    val successMessage by viewModel.successMessage.collectAsState() // Düzeltilmiş state kullanımı
+    val successMessage by viewModel.successMessage.collectAsState()
     val context = LocalContext.current
     var isEditMode by remember { mutableStateOf(mode == "edit") }
     var showMenu by remember { mutableStateOf(false) }
@@ -88,12 +88,10 @@ fun ProfileScreen(
     val initialContact = remember(phone) { contacts.find { it.phone == phone } }
 
     if (initialContact == null) {
-        // Eğer kontak bulunamazsa, direkt geri dönülür (dialog kapanır)
         LaunchedEffect(Unit) { navController.popBackStack() }
         return
     }
 
-    // ... (LaunchedEffect'ler ve diğer değişken tanımları aynı kalır) ...
     LaunchedEffect(successMessage) {
         if (successMessage != null) {
             kotlinx.coroutines.delay(3000)
@@ -111,11 +109,13 @@ fun ProfileScreen(
     var imageUri by remember { mutableStateOf(initialContact.imageUri) }
     val shadowColor by getDominantColor(imageUri)
 
+    // State to check if the contact is already saved to the device's phonebook
     var isContactSavedToDevice by remember { mutableStateOf(false) }
     LaunchedEffect(phoneNumber) {
         isContactSavedToDevice = isContactInDevice(context.contentResolver, phoneNumber)
     }
 
+    // Activity Result Launcher used for picking an image from the gallery
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -123,18 +123,17 @@ fun ProfileScreen(
             imageUri = uri.toString()
         }
     }
+
+    //Shows the Profile Screen as a Bottom Sheet
     FullWidthBottomSheetDialog(
-        onDismissRequest = { navController.popBackStack() } // Dışarı tıklayınca kapatma
+        onDismissRequest = { navController.popBackStack() }
     ) {
-        // ThemedScreen, artık Dialog'un içindeki Box'ın içeriğidir.
         ThemedScreen(primaryColor = FigmaSuccessGreen) {
 
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        // Artık üstten 42.dp boşluğa gerek yok, çünkü Dialog kendisi
-                        // üstten gölgeli boşluğu sağlıyor.
                         .background(
                             color = Color.White,
                             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
@@ -143,7 +142,6 @@ fun ProfileScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
 
-                    // Bottom Sheet Başlık/Navigasyon Çubuğu (ESKİ KODUNUZUN AYNISI)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -151,7 +149,6 @@ fun ProfileScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // SOL BUTON/YER TUTUCU
                         if (isEditMode) {
                             TextButton(onClick = { navController.popBackStack() }) {
                                 Text("Cancel", color = FigmaPrimaryBlue)
@@ -160,14 +157,12 @@ fun ProfileScreen(
                             Spacer(Modifier.width(60.dp))
                         }
 
-                        // BAŞLIK
                         Text(
                             text = if (isEditMode) "Edit Contact" else (initialContact.name + " " + initialContact.surname).trim(),
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
 
-                        // SAĞ BUTON/MENÜ
                         if (isEditMode) {
                             val hasChanges = (name != initialContact.name || surname != initialContact.surname || phoneNumber != initialContact.phone || imageUri != initialContact.imageUri)
                             TextButton(
@@ -193,7 +188,6 @@ fun ProfileScreen(
                         }
                     }
 
-                    // Form İçeriği (Kaydırılabilir - ESKİ KODUNUZUN AYNISI)
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -202,7 +196,6 @@ fun ProfileScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // ... Geri kalan tüm form elemanları ve butonlar aynı kalır ...
                         ContactImage(
                             imageUri = imageUri,
                             shadowColor = shadowColor,
@@ -212,8 +205,10 @@ fun ProfileScreen(
                         )
                         Spacer(Modifier.height(16.dp))
 
+                        // Add/Change Photo buttons
                         TextButton(onClick = { if (isEditMode) imagePickerLauncher.launch("image/*") }, colors = ButtonDefaults.textButtonColors(contentColor = FigmaPrimaryBlue)) { Text(if (imageUri == null) "Add Photo" else "Change Photo") }
                         if (isEditMode && imageUri != null) {
+                            // 'Remove Photo' button, only visible if in edit mode and a photo exists
                             TextButton(onClick = { imageUri = null }) { Text("Remove Photo", color = MaterialTheme.colorScheme.error) }
                             Spacer(Modifier.height(8.dp))
                         }
@@ -225,7 +220,9 @@ fun ProfileScreen(
                         Spacer(Modifier.height(8.dp))
 
                         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            OutlinedButton(onClick = { saveContactToDevice(context, initialContact); isContactSavedToDevice = true; viewModel._successMessage.value = "User is added to your phone!" }, enabled = !isContactSavedToDevice, colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.surface, contentColor = FigmaGray_950), border = BorderStroke(1.dp, FigmaGray_950), modifier = Modifier.padding(vertical = 4.dp)) {
+                            OutlinedButton(onClick = {
+                                // Save the contact to the device's phonebook
+                                saveContactToDevice(context, initialContact); isContactSavedToDevice = true; viewModel._successMessage.value = "User is added to your phone!" }, enabled = !isContactSavedToDevice, colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.surface, contentColor = FigmaGray_950), border = BorderStroke(1.dp, FigmaGray_950), modifier = Modifier.padding(vertical = 4.dp)) {
                                 Icon(painter = painterResource(id = R.drawable.ic_save), contentDescription = "Save to phone", modifier = Modifier.size(20.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Text("Save to My Phone Contact", style = MaterialTheme.typography.bodyLarge)
@@ -244,7 +241,6 @@ fun ProfileScreen(
                     }
                 }
 
-                // ÖZEL SİLME ONAY DİYALOĞU (ESKİ KODUNUZUN AYNISI)
                 if (showDeleteConfirmation && contactToDelete != null) {
                     Box(
                         modifier = Modifier
@@ -275,7 +271,7 @@ fun ProfileScreen(
                     }
                 }
 
-                // Başarı Mesajı (Altta Sabit - ESKİ KODUNUZUN AYNISI)
+                //Success Message pop-up
                 successMessage?.let { message ->
                     SuccessMessagePopup(
                         message = message,

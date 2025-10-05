@@ -34,6 +34,7 @@ fun SwipeRow(
     val backgroundWidth = 140.dp
     val backgroundThreshold = 80f
 
+    // Derived state to check if the row is actively being dragged or animated away from 0.
     val isActivelySwiped by remember {
         derivedStateOf { abs(offsetX.value) > 1f }
     }
@@ -72,7 +73,7 @@ fun SwipeRow(
                 }
             }
     ) {
-        // Arka plan Edit / Delete ikonları göstermek için
+        //To display the background edit and delete icons
         if (offsetX.value < -backgroundThreshold) {
             Row(
                 modifier = Modifier
@@ -88,14 +89,13 @@ fun SwipeRow(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Edit butonu
+                    // Edit button
                     Button(
                         onClick = {
                             isSwipeOpen = false
                             scope.launch { offsetX.animateTo(0f) }
                             onEditClick()
                         },
-                        // FigmaPrimaryBlue arka plan
                         colors = ButtonDefaults.buttonColors(containerColor = FigmaPrimaryBlue),
                         modifier = Modifier
                             .weight(1f)
@@ -105,19 +105,18 @@ fun SwipeRow(
                         Icon(
                             painter = painterResource(id = R.drawable.ic_edit),
                             contentDescription = "Edit",
-                            tint = MaterialTheme.colorScheme.onPrimary, // İkon Rengi: Beyaz
+                            tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(24.dp)
                         )
                     }
 
-                    // Delete butonu
+                    // Delete button
                     Button(
                         onClick = {
                             isSwipeOpen = false
                             scope.launch { offsetX.animateTo(0f) }
                             onDeleteClick()
                         },
-                        // FigmaRedError arka plan
                         colors = ButtonDefaults.buttonColors(containerColor = FigmaRedError),
                         modifier = Modifier
                             .weight(1f)
@@ -127,7 +126,7 @@ fun SwipeRow(
                         Icon(
                             painter = painterResource(id = R.drawable.ic_delete),
                             contentDescription = "Delete",
-                            tint = MaterialTheme.colorScheme.onPrimary, // İkon Rengi: Beyaz
+                            tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -135,7 +134,6 @@ fun SwipeRow(
             }
         }
 
-        // Satır içeriği
         Box(
             modifier = Modifier.offset { IntOffset(offsetX.value.toInt(), 0) }
         ) {
@@ -143,6 +141,7 @@ fun SwipeRow(
         }
     }
 
+    // If the offset animates back to exactly 0, ensure the swipe state is reset.
     LaunchedEffect(offsetX.value) {
         if (offsetX.value == 0f) {
             isSwipeOpen = false

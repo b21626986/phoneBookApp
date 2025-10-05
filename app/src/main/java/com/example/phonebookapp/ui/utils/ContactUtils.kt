@@ -30,7 +30,6 @@ object ContactUtils {
                 )
             }
 
-            // Phone number (required)
             ops.add(
                 ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
                     .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, rawContactInsertIndex)

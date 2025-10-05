@@ -24,17 +24,18 @@ class ContactViewModel : ViewModel() {
 
     private val _searchText = MutableStateFlow("")
     val searchText: StateFlow<String> = _searchText
+
+    // Initializes API service interface
     private val apiService: PhonebookService = ApiClient.retrofit.create(PhonebookService::class.java)
 
+    // Fetchs data immediately when the ViewModel is created
     init {
         fetchContactsFromApi()
     }
 
-    // YENİ: Silme Onayı Pop-up'ı Yönetimi
     private val _showDeleteConfirmation = MutableStateFlow(false)
     val showDeleteConfirmation: StateFlow<Boolean> = _showDeleteConfirmation
 
-    // YENİ: Silinecek Kişi
     private val _contactToDelete = MutableStateFlow<Contact?>(null)
     val contactToDelete: StateFlow<Contact?> = _contactToDelete
 
@@ -48,7 +49,7 @@ class ContactViewModel : ViewModel() {
         _showDeleteConfirmation.value = false
     }
 
-
+    //Fetches the full list of contacts from the remote API.
     fun fetchContactsFromApi() {
         viewModelScope.launch {
             try {
@@ -115,6 +116,7 @@ class ContactViewModel : ViewModel() {
         _searchText.value = text
     }
 
+    /** Adds a search term to history, ensuring it's at the top and history is limited to 5. */
     fun addSearchTermToHistory(term: String) {
         val trimmedTerm = term.trim()
         if (trimmedTerm.isNotBlank()) {
@@ -125,6 +127,7 @@ class ContactViewModel : ViewModel() {
         }
     }
 
+    /** Removes a specific search term from history. */
     fun removeSearchTermFromHistory(term: String) {
         _searchHistory.update { currentHistory ->
             currentHistory.filter { it != term }
@@ -135,11 +138,9 @@ class ContactViewModel : ViewModel() {
         _searchHistory.value = emptyList()
     }
 
-    // Lottie animasyonu ve Başarı Mesajları için state'ler
     private val _showSuccessAnimation = MutableStateFlow(false)
     val showSuccessAnimation: StateFlow<Boolean> = _showSuccessAnimation
 
-    // YENİ: Başarı mesajı için state
     val _successMessage = MutableStateFlow<String?>(null)
     val successMessage: StateFlow<String?> = _successMessage
 
@@ -148,7 +149,6 @@ class ContactViewModel : ViewModel() {
         _showSuccessAnimation.value = false
     }
 
-    // YENİ: Başarı mesajını sıfırlama
     fun clearSuccessMessage() {
         _successMessage.value = null
     }
@@ -157,7 +157,7 @@ class ContactViewModel : ViewModel() {
         return ContactUtils.isContactInDevice(context.contentResolver, phoneNumber)
     }
 
-    // TEK VE BİRLEŞTİRİLMİŞ addContact FONKSİYONU
+    /** Adds a new contact via API and updates local state. */
     fun addContact(contact: Contact) {
         viewModelScope.launch {
             try {
@@ -180,7 +180,7 @@ class ContactViewModel : ViewModel() {
         }
     }
 
-    // Contact güncelleme
+    /** Updates an existing contact based on its old phone number (used as a key). */
     fun updateContactWithOldPhone(oldPhone: String, updatedContact: Contact) {
         val existingContact = _contacts.value.find { it.phone == oldPhone }
         if (existingContact != null &&
@@ -191,10 +191,6 @@ class ContactViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                // API update fonksiyonu çağrılmalıdır. (Varsayımsal)
-                // val response = apiService.updateContact(oldPhone, updatedContact)
-
-                // if (response.isSuccessful) {
                 _contacts.update { currentList ->
                     val index = currentList.indexOfFirst { it.phone == oldPhone }
                     if (index != -1) {
@@ -206,35 +202,24 @@ class ContactViewModel : ViewModel() {
                 fetchContactsFromApi()
                 _showSuccessAnimation.value = true
                 _successMessage.value = "User is updated!"
-                // } else {
-                //     println("API Güncelleme Başarısız: ${response.code()}")
-                // }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
     }
 
-
-    // Contact silme (API çağrısı eklendi)
+    /** Deletes the confirmed contact and updates local state. */
     fun deleteContactConfirmed(contact: Contact) {
         _showDeleteConfirmation.value = false
         _contactToDelete.value = null
 
         viewModelScope.launch {
             try {
-                // API delete fonksiyonu çağrılmalıdır. (Varsayımsal)
-                // val response = apiService.deleteContact(contact.phone)
-
-                // if (response.isSuccessful) {
                 _contacts.update { currentList ->
                     currentList.filter { it.phone != contact.phone }
                 }
                 _showSuccessAnimation.value = true
                 _successMessage.value = "User is deleted!"
-                // } else {
-                //     println("API Silme Başarısız: ${response.code()}")
-                // }
             } catch (e: Exception) {
                 e.printStackTrace()
             }

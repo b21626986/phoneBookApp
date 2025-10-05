@@ -10,7 +10,9 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.converter.scalars.ScalarsConverterFactory
 
 object ApiClient {
-    // Swagger base: http://146.59.52.68:11235/ → most services are under /api/
+
+    // The Retrofit client used for sending requests to the API.
+    // The following interceptor adds the API key in the header for every request.
     private const val BASE_URL = "http://146.59.52.68:11235/api/"
     private const val API_KEY = "2ff037e0-c6de-4a73-be31-a3266470bdb9"
 
@@ -39,7 +41,6 @@ object ApiClient {
 
     val retrofit: Retrofit = Retrofit.Builder()
         .baseUrl(BASE_URL)
-        // Some endpoints respond with text/plain
         .addConverterFactory(ScalarsConverterFactory.create())
         .addConverterFactory(GsonConverterFactory.create())
         .client(httpClient)

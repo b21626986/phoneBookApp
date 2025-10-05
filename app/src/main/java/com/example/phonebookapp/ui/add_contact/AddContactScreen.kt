@@ -44,7 +44,7 @@ fun AddContactScreen(
     val context = LocalContext.current
     var isSavingSuccessful by remember { mutableStateOf(false) }
 
-    // Lottie Animasyonu Ayarları
+
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.done))
     val progress by animateLottieCompositionAsState(
         composition,
@@ -53,7 +53,7 @@ fun AddContactScreen(
         restartOnPlay = true
     )
 
-    // Başarı durumunda navigasyonu yöneten effect
+    //Navigates to Contacts Screen if saving is successful
     LaunchedEffect(isSavingSuccessful) {
         if (isSavingSuccessful) {
             delay(3000)
@@ -63,6 +63,7 @@ fun AddContactScreen(
         }
     }
 
+    //Starts camera or gallery to pick a photo
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -71,22 +72,20 @@ fun AddContactScreen(
         }
     }
 
+    //Opens the bottom sheet when it is wanted to add a new contact
     FullWidthBottomSheetDialog(
-        onDismissRequest = { navController.popBackStack() } // Dışarı tıklayınca kapatma
+        onDismissRequest = { navController.popBackStack() } // Closes when you tap out of the bottom sheet
     ) {
-        // TEMA UYGULAMASI: Add ekranı için Primary rengi Mavi olarak kalır
         ThemedScreen(primaryColor = FigmaPrimaryBlue) {
-
-            // EĞER KAYIT BAŞARILIYSA, SADECE TAMAMEN BEYAZ EKRANI GÖSTER
             if (isSavingSuccessful) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.White), // Tamamen beyaz arka plan
+                        .background(Color.White),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        // Lottie Animasyonu
+                        // Lottie animation and its texts
                         if (composition != null) {
                             LottieAnimation(
                                 composition,
@@ -97,7 +96,6 @@ fun AddContactScreen(
 
                         Spacer(Modifier.height(16.dp))
 
-                        // 1. Satır: All Done! (Bold ve Büyük)
                         Text(
                             text = "All Done!",
                             style = MaterialTheme.typography.headlineMedium.copy(
@@ -107,7 +105,6 @@ fun AddContactScreen(
                             color = FigmaGray_950
                         )
 
-                        // 2. Satır: New contact saved 🎉 (Normal ve Küçük)
                         Text(
                             text = "New contact saved 🎉",
                             style = MaterialTheme.typography.bodyLarge.copy(
@@ -121,8 +118,6 @@ fun AddContactScreen(
                 return@ThemedScreen
             }
 
-            // isSavingSuccessful = false İSE, NORMAL FORMU GÖSTERİR
-            // Bottom Sheet İçeriği: Üstten 42.dp boşluk bırakılır
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -130,11 +125,10 @@ fun AddContactScreen(
                         color = Color.White,
                         shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
                     )
-                    // Bottom Sheet dışındaki 42.dp'lik boşluğu bırakmak için
                     .padding(top = 42.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Bottom Sheet Başlık/Navigasyon Çubuğu (Eski TopAppBar yerine)
+                //Design of the tabBar which has title and done/cancel buttons
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -142,12 +136,10 @@ fun AddContactScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Cancel Butonu
                     TextButton(onClick = { navController.popBackStack() }) {
                         Text("Cancel", color = FigmaPrimaryBlue)
                     }
 
-                    // Sayfa Başlığı
                     Text(
                         text = "New Contact",
                         style = MaterialTheme.typography.titleLarge.copy(
@@ -155,13 +147,13 @@ fun AddContactScreen(
                         )
                     )
 
-                    // Done Butonu
+                    //Gets new contacts info when it is clicked Done button
                     val isFormValid = phoneNumber.isNotBlank()
                     TextButton(
                         onClick = {
                             val newContact = Contact(name, surname, phoneNumber, imageUri)
                             viewModel.addContact(newContact)
-                            isSavingSuccessful = true // Başarı durumunu tetikle
+                            isSavingSuccessful = true
                         },
                         enabled = isFormValid
                     ) {
@@ -169,7 +161,6 @@ fun AddContactScreen(
                     }
                 }
 
-                // Form Alanları (Kaydırılabilir içerik)
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -177,7 +168,6 @@ fun AddContactScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // FOTOĞRAF ALANI
                     ContactImage(
                         imageUri = imageUri,
                         shadowColor = shadowColor,
@@ -189,7 +179,6 @@ fun AddContactScreen(
                     )
                     Spacer(Modifier.height(16.dp))
 
-                    // FOTOĞRAF BUTONLARI
                     TextButton(
                         onClick = { imagePickerLauncher.launch("image/*") },
                         colors = ButtonDefaults.textButtonColors(
@@ -206,7 +195,6 @@ fun AddContactScreen(
                         Spacer(Modifier.height(8.dp))
                     }
 
-                    // GİRİŞ ALANLARI
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },

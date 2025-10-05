@@ -33,7 +33,7 @@ fun SuccessMessagePopup(
                 .align(Alignment.Center),
             shape = RoundedCornerShape(8.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFE8F5E9) // Açık Yeşil
+                containerColor = Color(0xFFE8F5E9)
             ),
             elevation = CardDefaults.cardElevation(4.dp)
         ) {
@@ -44,14 +44,14 @@ fun SuccessMessagePopup(
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = "Success",
-                    tint = Color(0xFF4CAF50), // Koyu Yeşil
+                    tint = Color(0xFF4CAF50),
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = message,
                     style = MaterialTheme.typography.bodyLarge,
-                    color = Color(0xFF4CAF50) // Koyu Yeşil
+                    color = Color(0xFF4CAF50)
                 )
             }
         }

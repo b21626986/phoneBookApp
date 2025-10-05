@@ -74,6 +74,7 @@ fun ContactsScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     var isSearchFocused by remember { mutableStateOf(false) }
 
+    // Lottie Animation Setup
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.done))
     val progress by animateLottieCompositionAsState(
         composition,
@@ -82,12 +83,14 @@ fun ContactsScreen(
         restartOnPlay = true
     )
 
+    // Used to reset the state when the animation finishes
     LaunchedEffect(progress) {
         if (progress >= 1f && showSuccessAnimation) {
             viewModel.resetSuccessAnimation()
         }
     }
 
+    // Clears the success message after 3 seconds of being displayed
     LaunchedEffect(successMessage) {
         if (successMessage != null) {
             kotlinx.coroutines.delay(3000)
@@ -115,6 +118,7 @@ fun ContactsScreen(
                         containerColor = FigmaGray_50
                     ),
                     actions = {
+                        // Add New Contact Button
                         FloatingActionButton(
                             onClick = { navController.navigate("add") },
                             modifier = Modifier
@@ -128,19 +132,19 @@ fun ContactsScreen(
                         }
                     }
                 )
-                // SEARCH BAR
+                // Search Bar
                 OutlinedTextField(
                     value = searchText,
                     onValueChange = { viewModel.onSearchTextChanged(it) },
                     label = { Text("Search by name") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
                     trailingIcon = {
-                        if (searchText.isNotEmpty() || isSearchFocused) { // Odaklanmışsa VEYA metin varsa göster
+                        // Clears if text exists or Closes if focused
+                        if (searchText.isNotEmpty() || isSearchFocused) {
                             IconButton(onClick = {
                                 if (searchText.isNotEmpty()) {
-                                    viewModel.onSearchTextChanged("") // Metni temizle
+                                    viewModel.onSearchTextChanged("")
                                 } else if (isSearchFocused) {
-                                    // Metin boşken ve odaklanılmışken: Odağı kaldır (arama modundan çık)
                                     focusManager.clearFocus()
                                     keyboardController?.hide()
                                 }
@@ -153,6 +157,7 @@ fun ContactsScreen(
                     shape = RoundedCornerShape(12.dp),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(
+                        // When the 'Search' button on the keyboard is pressed
                         onSearch = {
                             viewModel.addSearchTermToHistory(searchText)
                             focusManager.clearFocus()
@@ -185,13 +190,12 @@ fun ContactsScreen(
 
                 val totalContactsInGroups = groupedContacts.values.sumOf { it.size }
 
-                // GÖSTERİM MANTIĞI: Arama odaklı DEĞİLSE VEYA ARAMA KUTUSU DOLU İSE listeyi göster.
                 val showContactList = !isSearchFocused || searchText.isNotEmpty()
 
                 if (showContactList) {
 
+                    //No Search Results Screen
                     if (totalContactsInGroups == 0 && searchText.isNotEmpty()) {
-                        // BURASI GÜNCELLENDİ: Arama çubuğuna yakın olması için sadece bu Column kullanılır.
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -200,14 +204,12 @@ fun ContactsScreen(
                             verticalArrangement = Arrangement.Top
                         ) {
                             Image(
-                                // İstenen Resource kullanıldı.
                                 painter = painterResource(id = R.drawable.ic_no_contact_found),
                                 contentDescription = "No results icon",
                                 modifier = Modifier.size(64.dp)
                             )
                             Spacer(Modifier.height(16.dp))
                             Text(
-                                // İstenen büyük 'R' ile yazıldı.
                                 text = "No Results",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
@@ -221,8 +223,9 @@ fun ContactsScreen(
                                 textAlign = TextAlign.Center
                             )
                         }
-                    } else if (totalContactsInGroups == 0 && searchText.isEmpty()) {
-                        // BOŞ LİSTE GÖRÜNÜMÜ (Ekran ortalanır)
+                    }
+                    //Empty Contact List Screen
+                    else if (totalContactsInGroups == 0 && searchText.isEmpty()) {
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -263,8 +266,9 @@ fun ContactsScreen(
                                 )
                             }
                         }
-                    } else {
-                        // KİŞİ LİSTESİ VE GRUPLAMA YAPISI
+                    }
+                    //Contact List
+                    else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
@@ -272,6 +276,7 @@ fun ContactsScreen(
                         ) {
                             groupedContacts.keys.sorted().forEach { initial ->
                                 item(key = "group_${initial}") {
+                                    // Card for each initial letter group
                                     Card(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -291,6 +296,7 @@ fun ContactsScreen(
                                             )
                                             Divider(modifier = Modifier.padding(start = 8.dp))
                                             groupedContacts[initial]?.forEachIndexed { index, contact ->
+                                                // Device Contact Check
                                                 var isDeviceContact by remember(contact.phone) { mutableStateOf(false) }
 
                                                 LaunchedEffect(contact.phone) {
@@ -304,6 +310,7 @@ fun ContactsScreen(
                                                     }
                                                 }
 
+                                                // Swipable Row (for Edit/Delete actions)
                                                 SwipeRow(
                                                     itemContent = { isSwiped ->
                                                         Row(
@@ -362,8 +369,7 @@ fun ContactsScreen(
                     }
                 }
 
-
-                // ARAMA GEÇMİŞİ ALANI
+                //Search History
                 if (isSearchFocused && searchText.isEmpty() && searchHistory.isNotEmpty()) {
                     Surface(
                         modifier = Modifier
@@ -376,7 +382,6 @@ fun ContactsScreen(
                                 .fillMaxWidth()
                                 .background(FigmaWhite)
                         ) {
-                            // BAŞLIK VE CLEAR ALL ROW'U
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -399,7 +404,6 @@ fun ContactsScreen(
                                 }
                             }
 
-                            // ARAMA GEÇMİŞİ LİSTESİ
                             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                                 searchHistory.forEach { term ->
                                     Row(
@@ -414,7 +418,6 @@ fun ContactsScreen(
                                             .padding(vertical = 12.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        // ÇARPI İKONU SOLDA (Silme butonu)
                                         IconButton(
                                             onClick = { viewModel.removeSearchTermFromHistory(term) },
                                             modifier = Modifier.size(24.dp)
@@ -441,7 +444,7 @@ fun ContactsScreen(
                     }
                 }
 
-                // ÖZEL SİLME ONAY DİYALOĞU
+                //Delete Confirmation Pop-up
                 if (showDeleteConfirmation && contactToDelete != null) {
                     Box(
                         modifier = Modifier

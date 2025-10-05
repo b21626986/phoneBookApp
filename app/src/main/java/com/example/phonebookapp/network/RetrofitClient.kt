@@ -12,7 +12,6 @@ object RetrofitClient {
     private val authInterceptor = Interceptor { chain ->
         val original = chain.request()
 
-        // Kural: API Anahtarını Header'a ekle
         val request = original.newBuilder()
             .header(Constants.API_KEY_HEADER, Constants.API_KEY)
             .build()
@@ -21,14 +20,14 @@ object RetrofitClient {
     }
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY // Hata ayıklama için istek/cevap içeriği gösterilir
+        level = HttpLoggingInterceptor.Level.BODY
     }
 
     private val okHttpClient = OkHttpClient.Builder()
-        .addInterceptor(authInterceptor) // API Anahtarını ekleyen Interceptor
-        .addInterceptor(loggingInterceptor) // Logging Interceptor
-        .connectTimeout(30, TimeUnit.SECONDS) // Bağlantı zaman aşımı
-        .readTimeout(30, TimeUnit.SECONDS)    // Okuma zaman aşımı
+        .addInterceptor(authInterceptor)
+        .addInterceptor(loggingInterceptor)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
     val retrofit: Retrofit = Retrofit.Builder()

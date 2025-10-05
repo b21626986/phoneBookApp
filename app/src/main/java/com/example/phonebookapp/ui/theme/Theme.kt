@@ -4,7 +4,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// Contacts (Mavi) Ekranı için Ana Tema Renkleri
 private val LightColorSchemeContacts = lightColorScheme(
     primary = FigmaPrimaryBlue,
     onPrimary = FigmaWhite,
@@ -14,7 +13,7 @@ private val LightColorSchemeContacts = lightColorScheme(
     secondary = FigmaSecondaryBlue,
     onSecondary = FigmaWhite,
 
-    tertiary = FigmaSuccessGreen, // Yeşil, cihaza kaydetme ikonu için kullanıldı
+    tertiary = FigmaSuccessGreen,
     onTertiary = FigmaWhite,
 
     error = FigmaRedError,
@@ -23,11 +22,11 @@ private val LightColorSchemeContacts = lightColorScheme(
     background = FigmaGray_50,
     onBackground = FigmaGray_950,
 
-    surface = FigmaWhite, // Kartlar, Listeler için
-    onSurface = FigmaGray_950, // Ana yazı
+    surface = FigmaWhite,
+    onSurface = FigmaGray_950,
     surfaceVariant = FigmaGray_50,
-    onSurfaceVariant = FigmaGray_300, // İkincil yazı
-    outline = FigmaGray_200 // Dividerlar, Çerçeveler
+    onSurfaceVariant = FigmaGray_300,
+    outline = FigmaGray_200
 )
 
 
@@ -35,29 +34,22 @@ private val LightColorSchemeContacts = lightColorScheme(
 fun PhoneBookAppTheme(
     content: @Composable () -> Unit
 ) {
-    // Uygulamanın varsayılan teması Contacts (Mavi) temasını kullanır.
     val colorScheme = LightColorSchemeContacts
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography, // Varsayılan Typography'yi kullanır
+        typography = Typography,
         content = content
     )
 }
 
-/**
- * ProfileScreen ve diğer ekranlar için yerel tema geçersiz kılma yardımcı fonksiyonu.
- * Contacts ekranı dışındaki ekranlar için Ana (Primary) rengi değiştirir.
- */
 @Composable
 fun ThemedScreen(
     primaryColor: Color,
     content: @Composable () -> Unit
 ) {
-    // Mevcut (Global) MaterialTheme renklerini kopyalar
     val currentColors = MaterialTheme.colorScheme
 
-    // YENİ: Sadece Primary rengi değiştirir, diğer renkleri korur
     val screenColorScheme = currentColors.copy(
         primary = primaryColor,
         primaryContainer = if (primaryColor == FigmaSuccessGreen) currentColors.surfaceVariant else FigmaPrimaryBlueContainer,
