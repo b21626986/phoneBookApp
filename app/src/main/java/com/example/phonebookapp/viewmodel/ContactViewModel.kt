@@ -71,11 +71,21 @@ class ContactViewModel : ViewModel() {
         .map { contactList ->
             contactList.sortedWith(
                 compareBy<Contact> {
-                    it.name.isBlank()
+                    // 1. Kriter: İsim/Soyisim/Telefon alanlarının hepsi boş mu? (Boş olanlar sona gitsin)
+                    it.name.isBlank() && it.surname.isBlank() && it.phone.isBlank()
                 }.thenBy(String.CASE_INSENSITIVE_ORDER) {
-                    if (it.name.isBlank()) it.phone else it.name
+                    // 2. Kriter: İsim boşsa soyismi kullan, soyisim de boşsa telefon numarasını kullan
+                    when {
+                        it.name.isNotBlank() -> it.name
+                        it.surname.isNotBlank() -> it.surname
+                        else -> it.phone
+                    }
                 }.thenBy(String.CASE_INSENSITIVE_ORDER) {
+                    // 3. Kriter (İkinci ad/soyad olarak): Soyismi kullan
                     it.surname
+                }.thenBy(String.CASE_INSENSITIVE_ORDER) {
+                    // 4. Kriter (Son çare): Telefon numarasını kullan
+                    it.phone
                 }
             )
         }
@@ -101,7 +111,12 @@ class ContactViewModel : ViewModel() {
             }
 
             baseList.groupBy { contact ->
-                val firstChar = contact.name.trim().firstOrNull()
+                // Gruplama Mantığı Güncellendi: İsim boşsa Soyismin ilk harfini kullan
+                val firstChar = when {
+                    contact.name.isNotBlank() -> contact.name.trim().firstOrNull()
+                    contact.surname.isNotBlank() -> contact.surname.trim().firstOrNull()
+                    else -> null
+                }
                 if (firstChar != null && firstChar.isLetter()) firstChar.uppercaseChar() else '#'
             }
         }.stateIn(

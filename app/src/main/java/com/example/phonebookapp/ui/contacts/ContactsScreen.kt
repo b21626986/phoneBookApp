@@ -512,27 +512,6 @@ fun ContactsScreen(
                         }
                     }
                 }
-
-                // Lottie Animasyonu ve Başarı Mesajı Pop-up'ı KALDIRILDI
-                /*
-                if (showSuccessAnimation && composition != null) {
-                    LottieAnimation(
-                        composition,
-                        progress = { progress },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.White.copy(alpha = 0.8f))
-                            .zIndex(1f)
-                    )
-                }
-
-                successMessage?.let { message ->
-                    SuccessMessagePopup(
-                        message = message,
-                        modifier = Modifier.align(Alignment.BottomCenter)
-                    )
-                }
-                */
             }
         }
     )

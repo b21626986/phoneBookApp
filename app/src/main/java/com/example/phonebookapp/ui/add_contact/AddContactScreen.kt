@@ -150,6 +150,7 @@ fun AddContactScreen(
                 )
 
                 // Done Butonu
+                // GÜNCELLENDİ: name VEYA surname VEYA phoneNumber dolu olmalı
                 val isFormValid = name.isNotBlank() || phoneNumber.isNotBlank() || surname.isNotBlank()
                 TextButton(
                     onClick = {
