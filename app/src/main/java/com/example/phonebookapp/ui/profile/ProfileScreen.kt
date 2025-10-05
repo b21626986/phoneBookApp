@@ -123,12 +123,6 @@ fun ProfileScreen(
             imageUri = uri.toString()
         }
     }
-    // TÜM MEVCUT STATE VE INITIALIZATION KODLARI BURADA AYNI KALIR
-
-
-    //-------------------------------------------------------------
-    // TÜM EKRAN İÇERİĞİ, ÖZELLEŞTİRİLMİŞ DİYALOG İÇİNDE
-    //-------------------------------------------------------------
     FullWidthBottomSheetDialog(
         onDismissRequest = { navController.popBackStack() } // Dışarı tıklayınca kapatma
     ) {
@@ -141,7 +135,10 @@ fun ProfileScreen(
                         .fillMaxSize()
                         // Artık üstten 42.dp boşluğa gerek yok, çünkü Dialog kendisi
                         // üstten gölgeli boşluğu sağlıyor.
-                        .background(Color.White)
+                        .background(
+                            color = Color.White,
+                            shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
+                        )
                         .padding(top = 0.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -150,7 +147,6 @@ fun ProfileScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surface)
                             .padding(horizontal = 16.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
