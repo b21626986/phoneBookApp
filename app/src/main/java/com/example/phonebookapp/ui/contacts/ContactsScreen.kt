@@ -1,6 +1,5 @@
 package com.example.phonebookapp.ui.screens
 
-import android.R.attr.tint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -12,9 +11,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SentimentDissatisfied
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,7 +31,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.navigation.NavHostController
-import com.airbnb.lottie.compose.*
 import com.example.phonebookapp.R
 import com.example.phonebookapp.ui.SwipeRow
 import com.example.phonebookapp.ui.theme.FigmaPrimaryBlue
@@ -43,14 +39,10 @@ import androidx.compose.foundation.shape.CircleShape
 import com.example.phonebookapp.ui.theme.FigmaWhite
 import com.example.phonebookapp.ui.theme.FigmaGray_950
 import com.example.phonebookapp.ui.utils.ContactImage
-import com.example.phonebookapp.ui.utils.SuccessMessagePopup
 import com.example.phonebookapp.viewmodel.ContactViewModel
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
-import com.example.phonebookapp.ui.theme.FigmaGray_200
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
@@ -61,12 +53,14 @@ fun ContactsScreen(
     val groupedContacts by viewModel.filteredGroupedContacts.collectAsState()
     val searchText by viewModel.searchText.collectAsState()
     val searchHistory by viewModel.searchHistory.collectAsState()
-    val showSuccessAnimation by viewModel.showSuccessAnimation.collectAsState()
+
+    // Success state'leri kaldırılıyor, çünkü ContactsScreen'de gösterilmeyecekler.
+    // val showSuccessAnimation by viewModel.showSuccessAnimation.collectAsState() // KALDIRILDI
+    // val successMessage by viewModel.successMessage.collectAsState() // KALDIRILDI
 
     val contactToDelete by viewModel.contactToDelete.collectAsState()
     val showDeleteConfirmation by viewModel.showDeleteConfirmation.collectAsState()
 
-    val successMessage by viewModel.successMessage.collectAsState()
     val context = LocalContext.current
 
     val focusRequester = remember { FocusRequester() }
@@ -74,6 +68,8 @@ fun ContactsScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     var isSearchFocused by remember { mutableStateOf(false) }
 
+    // Lottie animasyon ve durum resetleme blokları KALDIRILDI.
+    /*
     val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(R.raw.done))
     val progress by animateLottieCompositionAsState(
         composition,
@@ -94,6 +90,8 @@ fun ContactsScreen(
             viewModel.clearSuccessMessage()
         }
     }
+    */
+
 
     Scaffold(
         containerColor = FigmaGray_50,
@@ -135,12 +133,11 @@ fun ContactsScreen(
                     label = { Text("Search by name") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
                     trailingIcon = {
-                        if (searchText.isNotEmpty() || isSearchFocused) { // Odaklanmışsa VEYA metin varsa göster
+                        if (searchText.isNotEmpty() || isSearchFocused) {
                             IconButton(onClick = {
                                 if (searchText.isNotEmpty()) {
-                                    viewModel.onSearchTextChanged("") // Metni temizle
+                                    viewModel.onSearchTextChanged("")
                                 } else if (isSearchFocused) {
-                                    // Metin boşken ve odaklanılmışken: Odağı kaldır (arama modundan çık)
                                     focusManager.clearFocus()
                                     keyboardController?.hide()
                                 }
@@ -191,23 +188,23 @@ fun ContactsScreen(
                 if (showContactList) {
 
                     if (totalContactsInGroups == 0 && searchText.isNotEmpty()) {
-                        // BURASI GÜNCELLENDİ: Arama çubuğuna yakın olması için sadece bu Column kullanılır.
+                        // ARAMA SONUCU BULUNAMADI GÖRÜNÜMÜ
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 64.dp, start = 32.dp, end = 32.dp),
+                                .padding(horizontal = 32.dp)
+                                .fillMaxHeight(),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Top
+                            verticalArrangement = Arrangement.Center
                         ) {
-                            Image(
-                                // İstenen Resource kullanıldı.
+                            Icon(
                                 painter = painterResource(id = R.drawable.ic_no_contact_found),
                                 contentDescription = "No results icon",
-                                modifier = Modifier.size(64.dp)
+                                modifier = Modifier.size(64.dp),
+                                tint = FigmaPrimaryBlue // FigmaPrimaryBlue rengi kullanıldı
                             )
                             Spacer(Modifier.height(16.dp))
                             Text(
-                                // İstenen büyük 'R' ile yazıldı.
                                 text = "No Results",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
@@ -516,7 +513,8 @@ fun ContactsScreen(
                     }
                 }
 
-                // Lottie Animasyonu
+                // Lottie Animasyonu ve Başarı Mesajı Pop-up'ı KALDIRILDI
+                /*
                 if (showSuccessAnimation && composition != null) {
                     LottieAnimation(
                         composition,
@@ -528,13 +526,13 @@ fun ContactsScreen(
                     )
                 }
 
-                // Başarı Mesajı
                 successMessage?.let { message ->
                     SuccessMessagePopup(
                         message = message,
                         modifier = Modifier.align(Alignment.BottomCenter)
                     )
                 }
+                */
             }
         }
     )
