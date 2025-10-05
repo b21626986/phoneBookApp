@@ -7,6 +7,10 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 
 interface PhonebookService {
+
+    // PhonebookService defines all the API endpoints.
+    // It handles GET, POST, PUT, and DELETE methods for retrieving, adding, updating, and deleting contacts.
+
     @GET("User/GetAll")
     suspend fun getAllContacts(): Response<List<Contact>>
 
